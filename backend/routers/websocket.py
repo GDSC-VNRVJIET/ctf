@@ -49,6 +49,18 @@ async def team_websocket(websocket: WebSocket, team_id: str, token: str = None):
         await websocket.close(code=1008)
         return
     
+    # Check team membership
+    from database import get_db
+    from models import TeamMember
+    db = next(get_db())
+    membership = db.query(TeamMember).filter(
+        TeamMember.user_id == user_id,
+        TeamMember.team_id == team_id
+    ).first()
+    if not membership:
+        await websocket.close(code=1008)
+        return
+    
     await manager.connect_team(websocket, team_id)
     
     try:

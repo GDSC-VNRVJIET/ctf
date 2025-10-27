@@ -44,11 +44,11 @@ export function AuthProvider({ children }) {
 
   const signup = async (email, password, name) => {
     const response = await axios.post('/api/auth/signup', { email, password, name })
-    return response.data
-  }
-
-  const verifyEmail = async (email, otp) => {
-    const response = await axios.post('/api/auth/verify-email', { email, otp })
+    const { access_token } = response.data
+    localStorage.setItem('token', access_token)
+    setToken(access_token)
+    axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
+    await fetchUser()
     return response.data
   }
 
@@ -64,7 +64,6 @@ export function AuthProvider({ children }) {
     loading,
     login,
     signup,
-    verifyEmail,
     logout,
     token
   }

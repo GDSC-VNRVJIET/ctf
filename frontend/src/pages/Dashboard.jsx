@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
-import Navbar from '../components/Navbar'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -30,11 +29,22 @@ export default function Dashboard() {
     }
   }
 
+  const handleLeaveTeam = async () => {
+    if (!confirm('Are you sure you want to leave this team?')) return
+    
+    try {
+      await axios.post('/api/teams/leave')
+      alert('Left team successfully!')
+      window.location.reload()
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Failed to leave team')
+    }
+  }
+
   if (loading) return <div className="loading">Loading...</div>
 
   return (
     <div>
-      <Navbar />
       <div className="container">
         <h1 style={{ color: 'white', marginBottom: '24px' }}>Dashboard</h1>
 
@@ -68,9 +78,17 @@ export default function Dashboard() {
                 <Link to="/shop" className="btn btn-primary" style={{ marginRight: '8px' }}>
                   Shop
                 </Link>
-                <Link to="/leaderboard" className="btn btn-primary">
+                <Link to="/leaderboard" className="btn btn-primary" style={{ marginRight: '8px' }}>
                   Leaderboard
                 </Link>
+                {team.captain_user_id !== user.id && (
+                  <button 
+                    className="btn btn-warning" 
+                    onClick={handleLeaveTeam}
+                  >
+                    Leave Team
+                  </button>
+                )}
               </div>
             </div>
 

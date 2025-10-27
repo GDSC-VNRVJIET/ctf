@@ -90,7 +90,7 @@ class ConnectionManager:
                 "under_attack": under_attack
             })
         
-        leaderboard.sort(key=lambda x: x["score"], reverse=True)
+        leaderboard.sort(key=lambda x: x["points_balance"], reverse=True)
         
         await self.broadcast({
             "type": "leaderboard_update",

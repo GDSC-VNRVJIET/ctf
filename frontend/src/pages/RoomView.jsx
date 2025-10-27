@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
-import Navbar from '../components/Navbar'
 
 export default function RoomView() {
   const { roomId } = useParams()
@@ -50,7 +49,6 @@ export default function RoomView() {
 
   return (
     <div>
-      <Navbar />
       <div className="container">
         <div className="card">
           <h1>{room.name}</h1>

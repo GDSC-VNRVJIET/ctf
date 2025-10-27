@@ -6,19 +6,29 @@ export default function Navbar() {
 
   return (
     <div className="navbar">
-      <div className="navbar-brand">CTF Platform</div>
+      <Link to="/" className="navbar-brand">🛡️ CTF Realm</Link>
       <div className="navbar-menu">
-        <Link to="/dashboard">Dashboard</Link>
-        <Link to="/team">Team</Link>
-        <Link to="/shop">Shop</Link>
-        <Link to="/leaderboard">Leaderboard</Link>
+        <Link to="/" className="nav-link">🏠 Home</Link>
+        <Link to="/dashboard" className="nav-link">🎯 Challenges</Link>
+        <Link to="/leaderboard" className="nav-link">🏆 Leaderboard</Link>
+        <Link to="/team" className="nav-link">👥 Team</Link>
+        <Link to="/shop" className="nav-link">🛒 Shop</Link>
         {(user?.role === 'admin' || user?.role === 'organiser') && (
-          <Link to="/admin">Admin</Link>
+          <Link to="/admin" className="nav-link">⚙️ Admin</Link>
         )}
-        <span style={{ color: '#666' }}>{user?.name}</span>
-        <button className="btn btn-secondary" onClick={logout}>
-          Logout
-        </button>
+        {user ? (
+          <>
+            <span className="user-info">👤 {user?.name}</span>
+            <button className="btn btn-secondary btn-pixel" onClick={logout}>
+              🚪 Logout
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className="nav-link">🔐 Login</Link>
+            <Link to="/signup" className="btn btn-primary btn-pixel">🎮 Sign Up</Link>
+          </>
+        )}
       </div>
     </div>
   )

@@ -1,30 +1,95 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
-import Navbar from '../components/Navbar'
 
 export default function TeamManagement() {
   const { user } = useAuth()
   const [team, setTeam] = useState(null)
   const [members, setMembers] = useState([])
+  const [joinRequests, setJoinRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
+
+  const fetchTeam = async () => {
+    try {
+      const response = await axios.get('/api/teams/my/team')
+      const teamData = response.data
+      setTeam(teamData)
+
+      // Fetch members
+      const membersResponse = await axios.get(`/api/teams/${teamData.id}/members`)
+      setMembers(membersResponse.data)
+
+      // Fetch join requests if user is captain
+      if (teamData.captain_user_id === user.id) {
+        const requestsResponse = await axios.get(`/api/teams/${teamData.id}/join-requests`)
+        setJoinRequests(requestsResponse.data)
+      } else {
+        setJoinRequests([])
+      }
+    } catch (error) {
+      if (error.response?.status === 404) {
+        setTeam(null)
+        setMembers([])
+        setJoinRequests([])
+      } else {
+        alert('Failed to load team data')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetchTeam()
   }, [])
 
-  const fetchTeam = async () => {
+  const handleAcceptRequest = async (requestId) => {
+    if (!confirm('Accept this join request?')) return
+    
     try {
-      const teamRes = await axios.get('/api/teams/my/team')
-      setTeam(teamRes.data)
-      const membersRes = await axios.get(`/api/teams/${teamRes.data.id}/members`)
-      setMembers(membersRes.data)
+      await axios.post(`/api/teams/${team.id}/join-requests/${requestId}/accept`)
+      alert('Request accepted!')
+      fetchTeam()
     } catch (error) {
-      console.log('No team found')
-    } finally {
-      setLoading(false)
+      alert(error.response?.data?.detail || 'Failed to accept request')
+    }
+  }
+
+  const handleRejectRequest = async (requestId) => {
+    if (!confirm('Reject this join request?')) return
+    
+    try {
+      await axios.post(`/api/teams/${team.id}/join-requests/${requestId}/reject`)
+      alert('Request rejected!')
+      fetchTeam()
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Failed to reject request')
+    }
+  }
+
+  const handleRemoveMember = async (userId, userName) => {
+    if (!confirm(`Remove ${userName} from the team?`)) return
+    
+    try {
+      await axios.delete(`/api/teams/${team.id}/members/${userId}`)
+      alert('Member removed successfully!')
+      fetchTeam()
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Failed to remove member')
+    }
+  }
+
+  const handleDeleteTeam = async () => {
+    if (!confirm('Are you sure you want to delete this team? This action cannot be undone!')) return
+    
+    try {
+      await axios.delete(`/api/teams/${team.id}`)
+      alert('Team deleted successfully!')
+      window.location.reload()
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Failed to delete team')
     }
   }
 
@@ -32,7 +97,6 @@ export default function TeamManagement() {
 
   return (
     <div>
-      <Navbar />
       <div className="container">
         <h1 style={{ color: 'white', marginBottom: '24px' }}>Team Management</h1>
 
@@ -58,6 +122,16 @@ export default function TeamManagement() {
                 <div><strong>Capacity:</strong> {members.length}/{team.capacity}</div>
                 <div><strong>Invite Code:</strong> <code>{team.invite_code}</code></div>
               </div>
+              {team.captain_user_id === user.id && (
+                <div style={{ marginTop: '16px' }}>
+                  <button 
+                    className="btn btn-danger" 
+                    onClick={handleDeleteTeam}
+                  >
+                    Delete Team
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="card">
@@ -69,6 +143,7 @@ export default function TeamManagement() {
                     <th>Email</th>
                     <th>Role</th>
                     <th>Joined</th>
+                    {team.captain_user_id === user.id && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -82,11 +157,63 @@ export default function TeamManagement() {
                         </span>
                       </td>
                       <td>{new Date(member.joined_at).toLocaleDateString()}</td>
+                      {team.captain_user_id === user.id && (
+                        <td>
+                          {member.user.id !== user.id && (
+                            <button 
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleRemoveMember(member.user.id, member.user.name)}
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {team.captain_user_id === user.id && joinRequests.length > 0 && (
+              <div className="card">
+                <h3>Join Requests</h3>
+                <table style={{ marginTop: '16px' }}>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Requested</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {joinRequests.map((request) => (
+                      <tr key={request.id}>
+                        <td>{request.user.name}</td>
+                        <td>{request.user.email}</td>
+                        <td>{new Date(request.requested_at).toLocaleDateString()}</td>
+                        <td>
+                          <button 
+                            className="btn btn-success btn-sm" 
+                            style={{ marginRight: '8px' }}
+                            onClick={() => handleAcceptRequest(request.id)}
+                          >
+                            Accept
+                          </button>
+                          <button 
+                            className="btn btn-danger btn-sm"
+                            onClick={() => handleRejectRequest(request.id)}
+                          >
+                            Reject
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
 
@@ -177,21 +304,16 @@ function JoinTeamModal({ onClose, onSuccess }) {
     setLoading(true)
 
     try {
-      // First get team by invite code (we need to search)
-      const teamsRes = await axios.get('/api/admin/teams')
-      const team = teamsRes.data.find(t => t.invite_code === inviteCode)
-      
-      if (!team) {
-        setError('Invalid invite code')
-        setLoading(false)
-        return
-      }
+      // Get team by invite code
+      const teamRes = await axios.get(`/api/teams/by-invite/${inviteCode}`)
+      const team = teamRes.data
 
       await axios.post(`/api/teams/${team.id}/join`, { invite_code: inviteCode })
+      alert('Join request sent successfully! Wait for captain approval.')
       onSuccess()
       onClose()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to join team')
+      setError(err.response?.data?.detail || 'Failed to send join request')
     } finally {
       setLoading(false)
     }

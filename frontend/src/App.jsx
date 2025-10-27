@@ -2,22 +2,22 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
-import VerifyEmail from './pages/VerifyEmail'
+import Home from './pages/Home'
 import Dashboard from './pages/Dashboard'
 import TeamManagement from './pages/TeamManagement'
 import RoomView from './pages/RoomView'
 import Shop from './pages/Shop'
 import Leaderboard from './pages/Leaderboard'
 import AdminPanel from './pages/AdminPanel'
+import MainLayout from './components/MainLayout'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
   
-  if (loading) return <div>Loading...</div>
+  if (loading) return <div className="loading">Loading...</div>
   if (!user) return <Navigate to="/login" />
-  if (!user.is_verified) return <Navigate to="/verify-email" />
   
-  return children
+  return <MainLayout>{children}</MainLayout>
 }
 
 function AdminRoute({ children }) {
@@ -28,7 +28,7 @@ function AdminRoute({ children }) {
     return <Navigate to="/dashboard" />
   }
   
-  return children
+  return <MainLayout>{children}</MainLayout>
 }
 
 function App() {
@@ -36,9 +36,9 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
           
           <Route path="/dashboard" element={
             <PrivateRoute><Dashboard /></PrivateRoute>
@@ -58,8 +58,6 @@ function App() {
           <Route path="/admin" element={
             <AdminRoute><AdminPanel /></AdminRoute>
           } />
-          
-          <Route path="/" element={<Navigate to="/dashboard" />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

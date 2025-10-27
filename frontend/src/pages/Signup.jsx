@@ -18,7 +18,8 @@ export default function Signup() {
 
     try {
       await signup(email, password, name)
-      navigate('/verify-email', { state: { email } })
+      // User is automatically logged in, redirect to dashboard
+      navigate('/dashboard')
     } catch (err) {
       setError(err.response?.data?.detail || 'Signup failed')
     } finally {

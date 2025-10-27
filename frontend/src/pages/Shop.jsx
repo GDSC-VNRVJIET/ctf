@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import Navbar from '../components/Navbar'
 
 export default function Shop() {
   const [perks, setPerks] = useState([])
@@ -40,7 +39,6 @@ export default function Shop() {
 
   return (
     <div>
-      <Navbar />
       <div className="container">
         <div className="card">
           <h1>Shop</h1>

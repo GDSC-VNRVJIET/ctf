@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import Navbar from '../components/Navbar'
 
 export default function Leaderboard() {
   const [leaderboard, setLeaderboard] = useState([])
@@ -63,11 +62,10 @@ export default function Leaderboard() {
 
   return (
     <div>
-      <Navbar />
       <div className="container">
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1>Leaderboard</h1>
+            <h1>Full Leaderboard</h1>
             {team && (
               <button className="btn btn-success" onClick={handleDefend}>
                 Activate Shield (30 pts)
@@ -94,7 +92,7 @@ export default function Leaderboard() {
                 <tr key={entry.team_id}>
                   <td><strong>#{index + 1}</strong></td>
                   <td>{entry.team_name}</td>
-                  <td><strong>{entry.score.toFixed(2)}</strong></td>
+                  <td><strong>{entry.points_balance.toFixed(2)}</strong></td>
                   <td>Room {entry.room_index || 0}</td>
                   <td>{entry.points_balance.toFixed(2)}</td>
                   <td>

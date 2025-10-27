@@ -4,7 +4,7 @@ from typing import List
 import json
 
 from database import get_db
-from models import User, Team, Room, Puzzle, Clue, Perk, AuditLog
+from models import User, Team, Room, Puzzle, Clue, Perk, AuditLog, TeamMember, TeamJoinRequest
 from schemas import (
     RoomCreate, PuzzleCreate, ClueCreate, TeamOverride,
     RoomResponse, PuzzleResponse
@@ -283,3 +283,44 @@ def disable_team(
     db.commit()
     
     return {"message": f"Team {team.name} disabled"}
+
+@router.delete("/teams/{team_id}", response_model=dict)
+def delete_team_admin(
+    team_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Get counts before deletion for audit log
+    member_count = db.query(TeamMember).filter(TeamMember.team_id == team_id).count()
+    pending_requests = db.query(TeamJoinRequest).filter(
+        TeamJoinRequest.team_id == team_id,
+        TeamJoinRequest.status == "pending"
+    ).count()
+    
+    # Delete all team members
+    db.query(TeamMember).filter(TeamMember.team_id == team_id).delete()
+    
+    # Delete all join requests
+    db.query(TeamJoinRequest).filter(TeamJoinRequest.team_id == team_id).delete()
+    
+    # Delete team
+    db.delete(team)
+    
+    log = AuditLog(
+        user_id=admin.id,
+        action="admin_delete_team",
+        details_json=json.dumps({
+            "team_id": team_id, 
+            "team_name": team.name,
+            "deleted_members": member_count,
+            "deleted_pending_requests": pending_requests
+        })
+    )
+    db.add(log)
+    db.commit()
+    
+    return {"message": f"Team {team.name} deleted"}

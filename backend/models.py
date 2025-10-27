@@ -16,12 +16,13 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     name = Column(String, nullable=False)
     role = Column(String, default="player")  # player, team_captain, admin, organiser
-    is_verified = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=True)  # Auto-verified, no OTP required
     otp = Column(String, nullable=True)
     otp_expiry = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     team_memberships = relationship("TeamMember", back_populates="user")
+    join_requests = relationship("TeamJoinRequest", back_populates="user")
 
 class Team(Base):
     __tablename__ = "teams"
@@ -43,6 +44,8 @@ class Team(Base):
     purchases = relationship("Purchase", back_populates="team")
     actions = relationship("Action", foreign_keys="Action.team_id", back_populates="team")
     submissions = relationship("Submission", back_populates="team")
+    join_requests = relationship("TeamJoinRequest", back_populates="team")
+    join_requests = relationship("TeamJoinRequest", back_populates="team")
 
 class TeamMember(Base):
     __tablename__ = "team_members"
@@ -172,3 +175,16 @@ class LeaderboardSnapshot(Base):
     score = Column(Float, nullable=False)
     room_index = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class TeamJoinRequest(Base):
+    __tablename__ = "team_join_requests"
+    
+    id = Column(String, primary_key=True, default=generate_uuid)
+    team_id = Column(String, ForeignKey("teams.id"))
+    user_id = Column(String, ForeignKey("users.id"))
+    status = Column(String, default="pending")  # pending, accepted, rejected
+    requested_at = Column(DateTime, default=datetime.utcnow)
+    responded_at = Column(DateTime, nullable=True)
+    
+    team = relationship("Team", back_populates="join_requests")
+    user = relationship("User")

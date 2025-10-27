@@ -1,19 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from datetime import datetime, timedelta
 import json
+from sqlalchemy import and_
 
 from database import get_db
 from models import (
     User, Team, TeamMember, Room, Puzzle, Clue, Perk, Purchase,
-    Submission, Action, AuditLog
+    Submission, Action, AuditLog, TeamJoinRequest
 )
 from schemas import (
     RoomResponse, FlagSubmit, PerkResponse, ActionCreate,
     ActionResponse, LeaderboardEntry
 )
-from auth import require_verified, hash_flag
+from auth import (
+    require_verified, hash_flag, validate_flag_format, 
+    check_submission_rate_limit, verify_team_state, log_security_event
+)
 from websocket_manager import manager
 
 router = APIRouter()
@@ -46,9 +50,28 @@ def get_room(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_verified)
 ):
-    room = db.query(Room).filter(Room.id == room_id).first()
+    # Get user's team
+    team = get_user_team(db, current_user.id)
+    
+    room = db.query(Room).options(
+        joinedload(Room.puzzles).joinedload(Puzzle.clues)
+    ).filter(Room.id == room_id).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Check if team has unlocked this room
+    if team.current_room_id:
+        current_room = db.query(Room).filter(Room.id == team.current_room_id).first()
+        if room.order_index > current_room.order_index:
+            raise HTTPException(status_code=403, detail="Room not unlocked yet")
+    else:
+        # Team hasn't unlocked any rooms yet
+        if room.order_index > 1:
+            raise HTTPException(status_code=403, detail="Room not unlocked yet")
+    
+    # Filter to only active puzzles
+    room.puzzles = [p for p in room.puzzles if p.is_active]
+    
     return room
 
 @router.post("/puzzles/{puzzle_id}/submit", response_model=dict)
@@ -56,9 +79,12 @@ async def submit_flag(
     puzzle_id: str,
     flag_data: FlagSubmit,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_verified)
+    current_user: User = Depends(require_verified),
+    request: Request = None
 ):
+    # Rate limiting for submissions
     team = get_user_team(db, current_user.id)
+    check_submission_rate_limit(db, team.id, puzzle_id)
     
     # Check if under attack
     active_attacks = db.query(Action).filter(
@@ -69,41 +95,163 @@ async def submit_flag(
     ).first()
     
     if active_attacks:
+        log_security_event(
+            db,
+            current_user.id,
+            "blocked_submission_under_attack",
+            {
+                "team_id": team.id,
+                "puzzle_id": puzzle_id,
+                "attack_id": active_attacks.id
+            },
+            ip_address=request.client.host if request else None
+        )
+        db.commit()
         raise HTTPException(status_code=403, detail="Team is under attack. Cannot submit flags.")
     
-    # Get puzzle
-    puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+    # Get puzzle with validation
+    puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id, Puzzle.is_active == True).first()
     if not puzzle:
-        raise HTTPException(status_code=404, detail="Puzzle not found")
+        log_security_event(
+            db,
+            current_user.id,
+            "submit_flag_invalid_puzzle",
+            {
+                "team_id": team.id,
+                "puzzle_id": puzzle_id
+            },
+            ip_address=request.client.host if request else None
+        )
+        db.commit()
+        raise HTTPException(status_code=404, detail="Puzzle not found or inactive")
     
-    # Validate flag
+    # Check if team has unlocked this puzzle's room
+    room = db.query(Room).filter(Room.id == puzzle.room_id).first()
+    if team.current_room_id:
+        current_room = db.query(Room).filter(Room.id == team.current_room_id).first()
+        if room.order_index > current_room.order_index:
+            log_security_event(
+                db,
+                current_user.id,
+                "submit_flag_room_not_unlocked",
+                {
+                    "team_id": team.id,
+                    "puzzle_id": puzzle_id,
+                    "room_id": room.id,
+                    "required_room_order": room.order_index,
+                    "current_room_order": current_room.order_index
+                },
+                ip_address=request.client.host if request else None
+            )
+            db.commit()
+            raise HTTPException(status_code=403, detail="Room not unlocked yet")
+    else:
+        # Team hasn't unlocked any rooms yet
+        if room.order_index > 1:
+            log_security_event(
+                db,
+                current_user.id,
+                "submit_flag_room_not_unlocked",
+                {
+                    "team_id": team.id,
+                    "puzzle_id": puzzle_id,
+                    "room_id": room.id,
+                    "required_room_order": room.order_index
+                },
+                ip_address=request.client.host if request else None
+            )
+            db.commit()
+            raise HTTPException(status_code=403, detail="Room not unlocked yet")
+    
+    # Validate flag format to prevent injection attacks
+    if not validate_flag_format(flag_data.flag):
+        log_security_event(
+            db,
+            current_user.id,
+            "submit_flag_invalid_format",
+            {
+                "team_id": team.id,
+                "puzzle_id": puzzle_id,
+                "flag_length": len(flag_data.flag)
+            },
+            ip_address=request.client.host if request else None
+        )
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid flag format")
+    
+    # Check if team already solved this puzzle
+    existing_correct = db.query(Submission).filter(
+        Submission.team_id == team.id,
+        Submission.puzzle_id == puzzle_id,
+        Submission.is_correct == True
+    ).first()
+    
+    if existing_correct:
+        log_security_event(
+            db,
+            current_user.id,
+            "submit_flag_already_solved",
+            {
+                "team_id": team.id,
+                "puzzle_id": puzzle_id,
+                "submission_id": existing_correct.id
+            },
+            ip_address=request.client.host if request else None
+        )
+        db.commit()
+        raise HTTPException(status_code=400, detail="Puzzle already solved")
+    
+    # Validate flag with salted hashing
     submitted_hash = hash_flag(flag_data.flag)
     is_correct = submitted_hash == puzzle.flag_hash
     
-    # Record submission
+    # Record submission with IP tracking
     submission = Submission(
         team_id=team.id,
         puzzle_id=puzzle_id,
         submitted_flag=submitted_hash,
-        is_correct=is_correct
+        is_correct=is_correct,
+        ip_address=request.client.host if request else None
     )
     db.add(submission)
     
     if is_correct:
+        # Verify team state before awarding points
+        verify_team_state(team)
+        
         # Award points
         team.points_balance += puzzle.points_reward
         
-        # Log
+        # Log successful solve
         log = AuditLog(
             user_id=current_user.id,
             action="solve_puzzle",
             details_json=json.dumps({
                 "team_id": team.id,
+                "team_name": team.name,
                 "puzzle_id": puzzle_id,
-                "points": puzzle.points_reward
+                "puzzle_title": puzzle.title,
+                "points": puzzle.points_reward,
+                "total_team_points": team.points_balance,
+                "ip_address": request.client.host if request else None
             })
         )
         db.add(log)
+        
+        # Log security event
+        log_security_event(
+            db,
+            current_user.id,
+            "solve_puzzle",
+            {
+                "team_id": team.id,
+                "team_name": team.name,
+                "puzzle_id": puzzle_id,
+                "puzzle_title": puzzle.title,
+                "points_awarded": puzzle.points_reward,
+                "ip_address": request.client.host if request else None
+            }
+        )
         db.commit()
         
         # Broadcast update
@@ -111,8 +259,27 @@ async def submit_flag(
         
         return {"message": "Correct flag!", "points_awarded": puzzle.points_reward}
     else:
+        # Log failed attempt
+        log_security_event(
+            db,
+            current_user.id,
+            "failed_flag_submission",
+            {
+                "team_id": team.id,
+                "puzzle_id": puzzle_id,
+                "submission_count": check_submission_count(db, team.id, puzzle_id),
+                "ip_address": request.client.host if request else None
+            }
+        )
         db.commit()
         return {"message": "Incorrect flag", "points_awarded": 0}
+
+def check_submission_count(db: Session, team_id: str, puzzle_id: str) -> int:
+    """Get total submission count for a team/puzzle combination"""
+    return db.query(Submission).filter(
+        Submission.team_id == team_id,
+        Submission.puzzle_id == puzzle_id
+    ).count()
 
 @router.post("/clues/{clue_id}/buy", response_model=dict)
 async def buy_clue(
@@ -391,7 +558,7 @@ def get_leaderboard(
             under_attack=under_attack
         ))
     
-    leaderboard.sort(key=lambda x: x.score, reverse=True)
+    leaderboard.sort(key=lambda x: x.points_balance, reverse=True)
     return leaderboard
 
 @router.post("/rooms/{room_id}/unlock", response_model=dict)
@@ -437,3 +604,44 @@ async def unlock_room(
     await manager.broadcast_leaderboard(db)
     
     return {"message": f"Unlocked {room.name}"}
+
+@router.delete("/teams/{team_id}", response_model=dict)
+def delete_team_admin(
+    team_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_verified)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Get counts before deletion for audit log
+    member_count = db.query(TeamMember).filter(TeamMember.team_id == team_id).count()
+    pending_requests = db.query(TeamJoinRequest).filter(
+        TeamJoinRequest.team_id == team_id,
+        TeamJoinRequest.status == "pending"
+    ).count()
+    
+    # Delete all team members
+    db.query(TeamMember).filter(TeamMember.team_id == team_id).delete()
+    
+    # Delete all join requests
+    db.query(TeamJoinRequest).filter(TeamJoinRequest.team_id == team_id).delete()
+    
+    # Delete team
+    db.delete(team)
+    
+    log = AuditLog(
+        user_id=admin.id,
+        action="admin_delete_team",
+        details_json=json.dumps({
+            "team_id": team_id, 
+            "team_name": team.name,
+            "deleted_members": member_count,
+            "deleted_pending_requests": pending_requests
+        })
+    )
+    db.add(log)
+    db.commit()
+    
+    return {"message": f"Team {team.name} deleted"}

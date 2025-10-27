@@ -63,6 +63,22 @@ class TeamMemberResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class TeamJoinRequestResponse(BaseModel):
+    id: str
+    team_id: str
+    user_id: str
+    status: str
+    requested_at: datetime
+    responded_at: Optional[datetime]
+    user: UserResponse
+    team: TeamResponse
+
+    class Config:
+        from_attributes = True
+
+class TeamJoinRequestCreate(BaseModel):
+    team_id: str
+
 # Room & Puzzle Schemas
 class ClueResponse(BaseModel):
     id: str

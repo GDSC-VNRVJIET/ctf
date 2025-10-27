@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import Navbar from '../components/Navbar'
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('rooms')
@@ -35,7 +34,6 @@ export default function AdminPanel() {
 
   return (
     <div>
-      <Navbar />
       <div className="container">
         <div className="card">
           <h1>Admin Panel</h1>
@@ -142,6 +140,18 @@ function TeamsTab({ teams, onRefresh }) {
     }
   }
 
+  const handleDelete = async (teamId) => {
+    if (!confirm('Delete this team permanently? This action cannot be undone!')) return
+
+    try {
+      await axios.delete(`/api/admin/teams/${teamId}`)
+      alert('Team deleted')
+      onRefresh()
+    } catch (error) {
+      alert('Failed to delete team')
+    }
+  }
+
   return (
     <div className="card">
       <h2>Teams</h2>
@@ -175,11 +185,18 @@ function TeamsTab({ teams, onRefresh }) {
                   Refund
                 </button>
                 <button
-                  className="btn btn-danger"
-                  style={{ padding: '4px 8px', fontSize: '12px' }}
+                  className="btn btn-warning"
+                  style={{ padding: '4px 8px', fontSize: '12px', marginRight: '4px' }}
                   onClick={() => handleDisable(team.id)}
                 >
                   Disable
+                </button>
+                <button
+                  className="btn btn-danger"
+                  style={{ padding: '4px 8px', fontSize: '12px' }}
+                  onClick={() => handleDelete(team.id)}
+                >
+                  Delete
                 </button>
               </td>
             </tr>
