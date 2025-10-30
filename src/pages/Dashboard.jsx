@@ -7,11 +7,9 @@ export default function Dashboard() {
   const { user, userId } = useAuth()
   const navigate = useNavigate()
 
-  // Real-time queries - automatically update
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
   const rooms = useQuery(api.game.getRooms, userId ? { userId } : "skip")
 
-  // Mutation for leaving team
   const leaveTeam = useMutation(api.teams.leaveTeam)
 
   const loading = team === undefined || rooms === undefined

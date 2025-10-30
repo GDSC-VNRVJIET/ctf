@@ -8,7 +8,6 @@ export default function TeamManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
 
-  // Real-time queries
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
   const members = useQuery(
     api.teams.getTeamMembers,
@@ -26,10 +25,6 @@ export default function TeamManagement() {
   const deleteTeam = useMutation(api.teams.deleteTeam)
 
   const loading = team === undefined
-
-  const fetchTeam = () => {
-    // No longer needed - queries update automatically!
-  }
 
   const handleAcceptRequest = async (requestId) => {
     if (!confirm('Accept this join request?')) return
@@ -200,14 +195,14 @@ export default function TeamManagement() {
           </>
         )}
 
-        {showCreateModal && <CreateTeamModal onClose={() => setShowCreateModal(false)} onSuccess={fetchTeam} />}
-        {showJoinModal && <JoinTeamModal onClose={() => setShowJoinModal(false)} onSuccess={fetchTeam} />}
+        {showCreateModal && <CreateTeamModal onClose={() => setShowCreateModal(false)} />}
+        {showJoinModal && <JoinTeamModal onClose={() => setShowJoinModal(false)} />}
       </div>
     </div>
   )
 }
 
-function CreateTeamModal({ onClose, onSuccess }) {
+function CreateTeamModal({ onClose }) {
   const { userId } = useAuth()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -224,7 +219,6 @@ function CreateTeamModal({ onClose, onSuccess }) {
 
     try {
       await createTeam({ userId, name, description, capacity })
-      onSuccess()
       onClose()
     } catch (err) {
       setError(err?.message || 'Failed to create team')
@@ -279,7 +273,7 @@ function CreateTeamModal({ onClose, onSuccess }) {
   )
 }
 
-function JoinTeamModal({ onClose, onSuccess }) {
+function JoinTeamModal({ onClose }) {
   const { userId } = useAuth()
   const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState('')
@@ -307,7 +301,6 @@ function JoinTeamModal({ onClose, onSuccess }) {
         inviteCode
       })
       alert('Join request sent successfully! Wait for captain approval.')
-      onSuccess()
       onClose()
     } catch (err) {
       setError(err?.message || 'Failed to send join request')

@@ -5,7 +5,6 @@ import { api } from '../../convex/_generated/api'
 export default function Leaderboard() {
   const { userId } = useAuth()
 
-  // Real-time queries - automatically refresh!
   const leaderboard = useQuery(api.game.getLeaderboard)
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
 

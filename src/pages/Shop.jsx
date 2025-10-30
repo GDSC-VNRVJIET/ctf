@@ -34,7 +34,7 @@ export default function Shop() {
         <div className="card">
           <h1>Shop</h1>
           <p style={{ marginTop: '8px' }}>
-            <strong>Available Points:</strong> {team?.points_balance.toFixed(2) || 0}
+            <strong>Available Points:</strong> {team?.pointsBalance?.toFixed(2) || 0}
           </p>
         </div>
 

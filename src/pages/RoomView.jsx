@@ -9,7 +9,6 @@ export default function RoomView() {
   const { userId } = useAuth()
   const [selectedPuzzle, setSelectedPuzzle] = useState(null)
 
-  // Real-time queries
   const room = useQuery(api.game.getRoom, userId && roomId ? { userId, roomId } : "skip")
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
 

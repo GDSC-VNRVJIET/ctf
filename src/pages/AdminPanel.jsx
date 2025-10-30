@@ -7,7 +7,6 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('rooms')
   const { userId } = useAuth()
 
-  // Real-time queries based on active tab
   const rooms = useQuery(api.admin.getAllRooms, activeTab === 'rooms' ? {} : "skip")
   const teams = useQuery(api.admin.getAllTeams, activeTab === 'teams' ? {} : "skip")
   const logs = useQuery(api.admin.getLogs, activeTab === 'logs' ? {} : "skip")
