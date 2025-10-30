@@ -1,51 +1,47 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import axios from 'axios'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import { useAuth } from '../context/AuthContext'
 
 export default function RoomView() {
   const { roomId } = useParams()
-  const [room, setRoom] = useState(null)
-  const [team, setTeam] = useState(null)
-  const [purchases, setPurchases] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { userId } = useAuth()
   const [selectedPuzzle, setSelectedPuzzle] = useState(null)
 
-  useEffect(() => {
-    fetchData()
-  }, [roomId])
+  // Real-time queries
+  const room = useQuery(api.game.getRoom, userId && roomId ? { userId, roomId } : "skip")
+  const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
 
-  const fetchData = async () => {
-    try {
-      const [roomRes, teamRes] = await Promise.all([
-        axios.get(`/api/rooms/${roomId}`),
-        axios.get('/api/teams/my/team')
-      ])
-      setRoom(roomRes.data)
-      setTeam(teamRes.data)
-      if (roomRes.data.puzzles?.length > 0) {
-        setSelectedPuzzle(roomRes.data.puzzles[0])
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
+  // Mutation for unlocking room
+  const unlockRoom = useMutation(api.game.unlockRoom)
+
+  // Select first puzzle when room loads
+  useEffect(() => {
+    if (room?.puzzles?.length > 0 && !selectedPuzzle) {
+      setSelectedPuzzle(room.puzzles[0])
     }
-  }
+  }, [room, selectedPuzzle])
 
   const handleUnlockRoom = async () => {
+    if (!userId) {
+      alert('Please log in first')
+      return
+    }
+
     try {
-      await axios.post(`/api/rooms/${roomId}/unlock`)
+      await unlockRoom({ userId, roomId })
       alert('Room unlocked!')
-      fetchData()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to unlock room')
+      alert(error?.message || 'Failed to unlock room')
     }
   }
 
+  const loading = room === undefined || team === undefined
   if (loading) return <div className="loading">Loading...</div>
   if (!room) return <div>Room not found</div>
 
-  const canAccess = !team?.current_room_id || team.current_room_id === roomId
+  const canAccess = !team?.currentRoomId || team.currentRoomId === roomId
 
   return (
     <div>
@@ -53,12 +49,12 @@ export default function RoomView() {
         <div className="card">
           <h1>{room.name}</h1>
           <p style={{ color: '#666', marginTop: '8px' }}>{room.description}</p>
-          
+
           {!canAccess && (
             <div style={{ marginTop: '16px' }}>
               <p>You need to unlock this room first.</p>
               <button className="btn btn-primary" onClick={handleUnlockRoom}>
-                Unlock Room ({room.unlock_cost} points)
+                Unlock Room ({room.unlockCost} points)
               </button>
             </div>
           )}
@@ -72,24 +68,24 @@ export default function RoomView() {
                 <div style={{ marginTop: '16px' }}>
                   {room.puzzles?.map((puzzle) => (
                     <div
-                      key={puzzle.id}
+                      key={puzzle._id}
                       className="card"
                       style={{
-                        background: selectedPuzzle?.id === puzzle.id ? '#e7f3ff' : '#f8f9fa',
+                        background: selectedPuzzle?._id === puzzle._id ? '#e7f3ff' : '#f8f9fa',
                         cursor: 'pointer',
                         marginBottom: '8px'
                       }}
                       onClick={() => setSelectedPuzzle(puzzle)}
                     >
                       <h3>{puzzle.title}</h3>
-                      <span className="badge badge-success">{puzzle.points_reward} pts</span>
+                      <span className="badge badge-success">{puzzle.pointsReward} pts</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {selectedPuzzle && (
-                <PuzzleView puzzle={selectedPuzzle} team={team} onSuccess={fetchData} />
+                <PuzzleView puzzle={selectedPuzzle} userId={userId} />
               )}
             </div>
           </>
@@ -99,39 +95,50 @@ export default function RoomView() {
   )
 }
 
-function PuzzleView({ puzzle, team, onSuccess }) {
+function PuzzleView({ puzzle, userId }) {
   const [flag, setFlag] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [purchasedClues, setPurchasedClues] = useState([])
+
+  // Mutations
+  const submitFlag = useMutation(api.game.submitFlag)
+  const buyClue = useMutation(api.game.buyClue)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setMessage('')
     setLoading(true)
 
+    if (!userId) {
+      setMessage('Please log in first')
+      setLoading(false)
+      return
+    }
+
     try {
-      const response = await axios.post(`/api/puzzles/${puzzle.id}/submit`, { flag })
-      setMessage(response.data.message)
-      if (response.data.points_awarded > 0) {
-        onSuccess()
-      }
+      const result = await submitFlag({ userId, puzzleId: puzzle._id, flag })
+      setMessage(result.message)
       setFlag('')
     } catch (error) {
-      setMessage(error.response?.data?.detail || 'Submission failed')
+      setMessage(error?.message || 'Submission failed')
     } finally {
       setLoading(false)
     }
   }
 
   const handleBuyClue = async (clueId) => {
+    if (!userId) {
+      alert('Please log in first')
+      return
+    }
+
     try {
-      const response = await axios.post(`/api/clues/${clueId}/buy`)
-      alert(response.data.message)
+      const result = await buyClue({ userId, clueId })
+      alert(result.message || 'Clue purchased!')
       setPurchasedClues([...purchasedClues, clueId])
-      onSuccess()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to buy clue')
+      alert(error?.message || 'Failed to buy clue')
     }
   }
 
@@ -165,9 +172,9 @@ function PuzzleView({ puzzle, team, onSuccess }) {
         <div style={{ marginTop: '24px' }}>
           <h3>Clues</h3>
           {puzzle.clues.map((clue) => {
-            const isPurchased = purchasedClues.includes(clue.id)
+            const isPurchased = purchasedClues.includes(clue._id)
             return (
-              <div key={clue.id} className="card" style={{ background: '#f8f9fa', marginTop: '8px' }}>
+              <div key={clue._id} className="card" style={{ background: '#f8f9fa', marginTop: '8px' }}>
                 {isPurchased ? (
                   <p>{clue.text}</p>
                 ) : (
@@ -176,7 +183,7 @@ function PuzzleView({ puzzle, team, onSuccess }) {
                     <button
                       className="btn btn-secondary"
                       style={{ marginTop: '8px' }}
-                      onClick={() => handleBuyClue(clue.id)}
+                      onClick={() => handleBuyClue(clue._id)}
                     >
                       Buy Clue
                     </button>

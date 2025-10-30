@@ -1,62 +1,57 @@
-import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import { useAuth } from '../context/AuthContext'
 import Navbar from './Navbar'
 
 function LeaderboardSidebar() {
-  const [leaderboard, setLeaderboard] = useState([])
-  const [team, setTeam] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { userId } = useAuth()
 
-  useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, 10000) // Refresh every 10 seconds
-    return () => clearInterval(interval)
-  }, [])
+  const leaderboard = useQuery(api.game.getLeaderboard)
+  const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
 
-  const fetchData = async () => {
-    try {
-      const [leaderboardRes, teamRes] = await Promise.all([
-        axios.get('/api/leaderboard'),
-        axios.get('/api/teams/my/team').catch(() => ({ data: null }))
-      ])
-      setLeaderboard(leaderboardRes.data)
-      setTeam(teamRes.data)
-    } catch (error) {
-      console.error('Failed to fetch leaderboard:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Mutations
+  const performAction = useMutation(api.game.performAction)
 
   const handleAttack = async (targetTeamId) => {
+    if (!userId) {
+      alert('Please log in first')
+      return
+    }
+
     if (!confirm('Attack this team? This will cost 50 points.')) return
 
     try {
-      await axios.post('/api/actions', {
-        action_type: 'attack',
-        target_team_id: targetTeamId
+      await performAction({
+        userId,
+        actionType: 'attack',
+        targetTeamId
       })
       alert('Attack launched!')
-      fetchData()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Attack failed')
+      alert(error?.message || 'Attack failed')
     }
   }
 
   const handleDefend = async () => {
+    if (!userId) {
+      alert('Please log in first')
+      return
+    }
+
     if (!confirm('Activate shield? This will cost 30 points.')) return
 
     try {
-      await axios.post('/api/actions', {
-        action_type: 'defend'
+      await performAction({
+        userId,
+        actionType: 'defend'
       })
       alert('Shield activated!')
-      fetchData()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to activate shield')
+      alert(error?.message || 'Failed to activate shield')
     }
   }
 
+  const loading = leaderboard === undefined || team === undefined
   if (loading) return <div className="sidebar-loading">Loading...</div>
 
   return (
@@ -71,22 +66,22 @@ function LeaderboardSidebar() {
       </div>
 
       <div className="leaderboard-list">
-        {leaderboard.slice(0, 10).map((entry, index) => (
-          <div key={entry.team_id} className="leaderboard-item">
+        {leaderboard && leaderboard.slice(0, 10).map((entry, index) => (
+          <div key={entry.teamId} className="leaderboard-item">
             <div className="leaderboard-rank">#{index + 1}</div>
             <div className="leaderboard-info">
-              <div className="leaderboard-team">{entry.team_name}</div>
-              <div className="leaderboard-score">{entry.points_balance.toFixed(0)} pts</div>
+              <div className="leaderboard-team">{entry.teamName}</div>
+              <div className="leaderboard-score">{entry.pointsBalance.toFixed(0)} pts</div>
               <div className="leaderboard-status">
-                {entry.shield_active && <span className="badge badge-success badge-xs">🛡️</span>}
-                {entry.under_attack && <span className="badge badge-danger badge-xs">⚔️</span>}
+                {entry.shieldActive && <span className="badge badge-success badge-xs">🛡️</span>}
+                {entry.underAttack && <span className="badge badge-danger badge-xs">⚔️</span>}
               </div>
             </div>
-            {team && entry.team_id !== team.id && (
+            {team && entry.teamId !== team._id && (
               <button
                 className="btn btn-danger btn-xs"
-                onClick={() => handleAttack(entry.team_id)}
-                disabled={entry.shield_active}
+                onClick={() => handleAttack(entry.teamId)}
+                disabled={entry.shieldActive}
                 title="Attack team"
               >
                 ⚔️

@@ -1,43 +1,30 @@
-import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import axios from 'axios'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../convex/_generated/api'
 
 export default function Dashboard() {
-  const { user } = useAuth()
-  const [team, setTeam] = useState(null)
-  const [rooms, setRooms] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { user, userId } = useAuth()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  // Real-time queries - automatically update
+  const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
+  const rooms = useQuery(api.game.getRooms, userId ? { userId } : "skip")
 
-  const fetchData = async () => {
-    try {
-      const [teamRes, roomsRes] = await Promise.all([
-        axios.get('/api/teams/my/team').catch(() => ({ data: null })),
-        axios.get('/api/rooms')
-      ])
-      setTeam(teamRes.data)
-      setRooms(roomsRes.data)
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Mutation for leaving team
+  const leaveTeam = useMutation(api.teams.leaveTeam)
+
+  const loading = team === undefined || rooms === undefined
 
   const handleLeaveTeam = async () => {
     if (!confirm('Are you sure you want to leave this team?')) return
-    
+
     try {
-      await axios.post('/api/teams/leave')
+      await leaveTeam({ userId })
       alert('Left team successfully!')
       window.location.reload()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to leave team')
+      alert(error?.message || 'Failed to leave team')
     }
   }
 
@@ -62,12 +49,12 @@ export default function Dashboard() {
               <h2>{team.name}</h2>
               <div style={{ display: 'flex', gap: '24px', marginTop: '16px' }}>
                 <div>
-                  <strong>Points:</strong> {team.points_balance.toFixed(2)}
+                  <strong>Points:</strong> {team.pointsBalance.toFixed(2)}
                 </div>
                 <div>
-                  <strong>Current Room:</strong> {team.current_room_id ? 'In Progress' : 'Not Started'}
+                  <strong>Current Room:</strong> {team.currentRoomId ? 'In Progress' : 'Not Started'}
                 </div>
-                {team.shield_active && (
+                {team.shieldActive && (
                   <span className="badge badge-success">Shield Active</span>
                 )}
               </div>
@@ -81,9 +68,9 @@ export default function Dashboard() {
                 <Link to="/leaderboard" className="btn btn-primary" style={{ marginRight: '8px' }}>
                   Leaderboard
                 </Link>
-                {team.captain_user_id !== user.id && (
-                  <button 
-                    className="btn btn-warning" 
+                {team.captainUserId !== user.id && (
+                  <button
+                    className="btn btn-warning"
                     onClick={handleLeaveTeam}
                   >
                     Leave Team
@@ -96,23 +83,23 @@ export default function Dashboard() {
               <h2>Rooms</h2>
               <div className="grid grid-2" style={{ marginTop: '16px' }}>
                 {rooms.map((room) => (
-                  <div key={room.id} className="card" style={{ background: '#f8f9fa' }}>
+                  <div key={room._id} className="card" style={{ background: '#f8f9fa' }}>
                     <h3>{room.name}</h3>
                     <p style={{ margin: '8px 0', color: '#666' }}>{room.description}</p>
                     <div style={{ marginTop: '12px' }}>
                       <span className="badge badge-info">
-                        {room.puzzles?.length || 0} Puzzles
+                        Room {room.orderIndex}
                       </span>
-                      {room.unlock_cost > 0 && (
+                      {room.unlockCost > 0 && (
                         <span className="badge badge-warning" style={{ marginLeft: '8px' }}>
-                          Cost: {room.unlock_cost} pts
+                          Cost: {room.unlockCost} pts
                         </span>
                       )}
                     </div>
                     <button
                       className="btn btn-primary"
                       style={{ marginTop: '12px', width: '100%' }}
-                      onClick={() => navigate(`/room/${room.id}`)}
+                      onClick={() => navigate(`/room/${room._id}`)}
                     >
                       Enter Room
                     </button>

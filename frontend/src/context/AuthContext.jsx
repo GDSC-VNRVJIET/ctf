@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import axios from 'axios'
+import { useMutation, useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
 
 const AuthContext = createContext()
 
@@ -8,64 +9,73 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState(localStorage.getItem('userId'))
   const [token, setToken] = useState(localStorage.getItem('token'))
+  const [loading, setLoading] = useState(true)
+
+  // Fetch user data from Convex (automatically updates on changes)
+  const user = useQuery(
+    api.auth.getMe,
+    userId ? { userId } : "skip"
+  )
+
+  // Convex mutations
+  const loginMutation = useMutation(api.auth.login)
+  const signupMutation = useMutation(api.auth.signup)
 
   useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      fetchUser()
-    } else {
+    // Initial load complete
+    if (userId && user !== undefined) {
+      setLoading(false)
+    } else if (!userId) {
       setLoading(false)
     }
-  }, [token])
-
-  const fetchUser = async () => {
-    try {
-      const response = await axios.get('/api/auth/me')
-      setUser(response.data)
-    } catch (error) {
-      console.error('Failed to fetch user:', error)
-      logout()
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [userId, user])
 
   const login = async (email, password) => {
-    const response = await axios.post('/api/auth/login', { email, password })
-    const { access_token } = response.data
-    localStorage.setItem('token', access_token)
-    setToken(access_token)
-    axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
-    await fetchUser()
+    try {
+      const response = await loginMutation({ email, password })
+      localStorage.setItem('userId', response.userId)
+      localStorage.setItem('token', response.access_token)
+      setUserId(response.userId)
+      setToken(response.access_token)
+      return response
+    } catch (error) {
+      console.error('Login failed:', error)
+      throw error
+    }
   }
 
   const signup = async (email, password, name) => {
-    const response = await axios.post('/api/auth/signup', { email, password, name })
-    const { access_token } = response.data
-    localStorage.setItem('token', access_token)
-    setToken(access_token)
-    axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
-    await fetchUser()
-    return response.data
+    try {
+      const response = await signupMutation({ email, password, name })
+      localStorage.setItem('userId', response.userId)
+      localStorage.setItem('token', response.access_token)
+      setUserId(response.userId)
+      setToken(response.access_token)
+      return response
+    } catch (error) {
+      console.error('Signup failed:', error)
+      throw error
+    }
   }
 
   const logout = () => {
+    localStorage.removeItem('userId')
     localStorage.removeItem('token')
+    setUserId(null)
     setToken(null)
-    setUser(null)
-    delete axios.defaults.headers.common['Authorization']
   }
 
   const value = {
     user,
+    userId,
     loading,
     login,
     signup,
     logout,
-    token
+    token,
+    isAuthenticated: !!userId && !!user
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -1,36 +1,20 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import { useAuth } from '../context/AuthContext'
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('rooms')
-  const [rooms, setRooms] = useState([])
-  const [teams, setTeams] = useState([])
-  const [logs, setLogs] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { userId } = useAuth()
 
-  useEffect(() => {
-    fetchData()
-  }, [activeTab])
+  // Real-time queries based on active tab
+  const rooms = useQuery(api.admin.getAllRooms, activeTab === 'rooms' ? {} : "skip")
+  const teams = useQuery(api.admin.getAllTeams, activeTab === 'teams' ? {} : "skip")
+  const logs = useQuery(api.admin.getLogs, activeTab === 'logs' ? {} : "skip")
 
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      if (activeTab === 'rooms') {
-        const res = await axios.get('/api/rooms')
-        setRooms(res.data)
-      } else if (activeTab === 'teams') {
-        const res = await axios.get('/api/admin/teams')
-        setTeams(res.data)
-      } else if (activeTab === 'logs') {
-        const res = await axios.get('/api/admin/logs')
-        setLogs(res.data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const loading = (activeTab === 'rooms' && rooms === undefined) ||
+    (activeTab === 'teams' && teams === undefined) ||
+    (activeTab === 'logs' && logs === undefined)
 
   return (
     <div>
@@ -69,10 +53,10 @@ export default function AdminPanel() {
           <div className="loading">Loading...</div>
         ) : (
           <>
-            {activeTab === 'rooms' && <RoomsTab rooms={rooms} onRefresh={fetchData} />}
-            {activeTab === 'teams' && <TeamsTab teams={teams} onRefresh={fetchData} />}
-            {activeTab === 'logs' && <LogsTab logs={logs} />}
-            {activeTab === 'create' && <CreateTab onRefresh={fetchData} />}
+            {activeTab === 'rooms' && <RoomsTab rooms={rooms || []} />}
+            {activeTab === 'teams' && <TeamsTab teams={teams || []} />}
+            {activeTab === 'logs' && <LogsTab logs={logs || []} />}
+            {activeTab === 'create' && <CreateTab />}
           </>
         )}
       </div>
@@ -80,7 +64,7 @@ export default function AdminPanel() {
   )
 }
 
-function RoomsTab({ rooms, onRefresh }) {
+function RoomsTab({ rooms }) {
   return (
     <div className="card">
       <h2>Rooms</h2>
@@ -96,14 +80,14 @@ function RoomsTab({ rooms, onRefresh }) {
         </thead>
         <tbody>
           {rooms.map((room) => (
-            <tr key={room.id}>
+            <tr key={room._id}>
               <td>{room.name}</td>
-              <td>{room.order_index}</td>
+              <td>{room.orderIndex}</td>
               <td>{room.puzzles?.length || 0}</td>
-              <td>{room.unlock_cost}</td>
+              <td>{room.unlockCost}</td>
               <td>
-                <span className={`badge ${room.is_active ? 'badge-success' : 'badge-danger'}`}>
-                  {room.is_active ? 'Active' : 'Inactive'}
+                <span className={`badge ${room.isActive ? 'badge-success' : 'badge-danger'}`}>
+                  {room.isActive ? 'Active' : 'Inactive'}
                 </span>
               </td>
             </tr>
@@ -114,17 +98,20 @@ function RoomsTab({ rooms, onRefresh }) {
   )
 }
 
-function TeamsTab({ teams, onRefresh }) {
+function TeamsTab({ teams }) {
+  const refundPoints = useMutation(api.admin.refundPoints)
+  const disableTeam = useMutation(api.admin.disableTeam)
+  const deleteTeam = useMutation(api.admin.deleteTeamAdmin)
+
   const handleRefund = async (teamId) => {
     const amount = prompt('Enter refund amount:')
     if (!amount) return
 
     try {
-      await axios.post(`/api/admin/teams/${teamId}/refund?amount=${amount}`)
+      await refundPoints({ teamId, amount: parseFloat(amount) })
       alert('Points refunded')
-      onRefresh()
     } catch (error) {
-      alert('Failed to refund points')
+      alert(error?.message || 'Failed to refund points')
     }
   }
 
@@ -132,11 +119,10 @@ function TeamsTab({ teams, onRefresh }) {
     if (!confirm('Disable this team?')) return
 
     try {
-      await axios.post(`/api/admin/teams/${teamId}/disable`)
+      await disableTeam({ teamId })
       alert('Team disabled')
-      onRefresh()
     } catch (error) {
-      alert('Failed to disable team')
+      alert(error?.message || 'Failed to disable team')
     }
   }
 
@@ -144,11 +130,10 @@ function TeamsTab({ teams, onRefresh }) {
     if (!confirm('Delete this team permanently? This action cannot be undone!')) return
 
     try {
-      await axios.delete(`/api/admin/teams/${teamId}`)
+      await deleteTeam({ teamId })
       alert('Team deleted')
-      onRefresh()
     } catch (error) {
-      alert('Failed to delete team')
+      alert(error?.message || 'Failed to delete team')
     }
   }
 
@@ -167,12 +152,12 @@ function TeamsTab({ teams, onRefresh }) {
         </thead>
         <tbody>
           {teams.map((team) => (
-            <tr key={team.id}>
+            <tr key={team._id}>
               <td>{team.name}</td>
-              <td>{team.points_balance.toFixed(2)}</td>
-              <td>{team.current_room_id || 'Not started'}</td>
+              <td>{team.pointsBalance.toFixed(2)}</td>
+              <td>{team.currentRoomId || 'Not started'}</td>
               <td>
-                {team.shield_active && (
+                {team.shieldActive && (
                   <span className="badge badge-success">Active</span>
                 )}
               </td>
@@ -180,21 +165,21 @@ function TeamsTab({ teams, onRefresh }) {
                 <button
                   className="btn btn-secondary"
                   style={{ padding: '4px 8px', fontSize: '12px', marginRight: '4px' }}
-                  onClick={() => handleRefund(team.id)}
+                  onClick={() => handleRefund(team._id)}
                 >
                   Refund
                 </button>
                 <button
                   className="btn btn-warning"
                   style={{ padding: '4px 8px', fontSize: '12px', marginRight: '4px' }}
-                  onClick={() => handleDisable(team.id)}
+                  onClick={() => handleDisable(team._id)}
                 >
                   Disable
                 </button>
                 <button
                   className="btn btn-danger"
                   style={{ padding: '4px 8px', fontSize: '12px' }}
-                  onClick={() => handleDelete(team.id)}
+                  onClick={() => handleDelete(team._id)}
                 >
                   Delete
                 </button>
@@ -222,11 +207,11 @@ function LogsTab({ logs }) {
           </thead>
           <tbody>
             {logs.map((log) => (
-              <tr key={log.id}>
-                <td>{new Date(log.created_at).toLocaleString()}</td>
+              <tr key={log._id}>
+                <td>{new Date(log.createdAt).toLocaleString()}</td>
                 <td><span className="badge badge-info">{log.action}</span></td>
                 <td style={{ fontSize: '12px', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {log.details_json}
+                  {log.detailsJson}
                 </td>
               </tr>
             ))}
@@ -237,7 +222,7 @@ function LogsTab({ logs }) {
   )
 }
 
-function CreateTab({ onRefresh }) {
+function CreateTab() {
   const [contentType, setContentType] = useState('room')
 
   return (
@@ -255,31 +240,39 @@ function CreateTab({ onRefresh }) {
           <option value="clue">Clue</option>
         </select>
 
-        {contentType === 'room' && <CreateRoomForm onSuccess={onRefresh} />}
-        {contentType === 'puzzle' && <CreatePuzzleForm onSuccess={onRefresh} />}
-        {contentType === 'clue' && <CreateClueForm onSuccess={onRefresh} />}
+        {contentType === 'room' && <CreateRoomForm />}
+        {contentType === 'puzzle' && <CreatePuzzleForm />}
+        {contentType === 'clue' && <CreateClueForm />}
       </div>
     </div>
   )
 }
 
-function CreateRoomForm({ onSuccess }) {
+function CreateRoomForm() {
+  const createRoom = useMutation(api.admin.createRoom)
+
   const [formData, setFormData] = useState({
     name: '',
-    order_index: 1,
+    orderIndex: 1,
     description: '',
-    is_challenge: false,
-    unlock_cost: 0
+    isChallenge: false,
+    unlockCost: 0
   })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await axios.post('/api/admin/rooms', formData)
+      await createRoom(formData)
       alert('Room created!')
-      onSuccess()
+      setFormData({
+        name: '',
+        orderIndex: 1,
+        description: '',
+        isChallenge: false,
+        unlockCost: 0
+      })
     } catch (error) {
-      alert('Failed to create room')
+      alert(error?.message || 'Failed to create room')
     }
   }
 
@@ -298,8 +291,8 @@ function CreateRoomForm({ onSuccess }) {
         <label>Order Index</label>
         <input
           type="number"
-          value={formData.order_index}
-          onChange={(e) => setFormData({ ...formData, order_index: parseInt(e.target.value) })}
+          value={formData.orderIndex}
+          onChange={(e) => setFormData({ ...formData, orderIndex: parseInt(e.target.value) })}
           required
         />
       </div>
@@ -315,8 +308,8 @@ function CreateRoomForm({ onSuccess }) {
         <label>Unlock Cost</label>
         <input
           type="number"
-          value={formData.unlock_cost}
-          onChange={(e) => setFormData({ ...formData, unlock_cost: parseFloat(e.target.value) })}
+          value={formData.unlockCost}
+          onChange={(e) => setFormData({ ...formData, unlockCost: parseFloat(e.target.value) })}
         />
       </div>
       <button type="submit" className="btn btn-primary">Create Room</button>
@@ -324,47 +317,49 @@ function CreateRoomForm({ onSuccess }) {
   )
 }
 
-function CreatePuzzleForm({ onSuccess }) {
-  const [rooms, setRooms] = useState([])
+function CreatePuzzleForm() {
+  const rooms = useQuery(api.admin.getAllRooms)
+  const createPuzzle = useMutation(api.admin.createPuzzle)
+
   const [formData, setFormData] = useState({
-    room_id: '',
+    roomId: '',
     title: '',
     description: '',
     flag: '',
-    points_reward: 100
+    pointsReward: 100
   })
-
-  useEffect(() => {
-    axios.get('/api/rooms').then(res => {
-      setRooms(res.data)
-      if (res.data.length > 0) {
-        setFormData(prev => ({ ...prev, room_id: res.data[0].id }))
-      }
-    })
-  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await axios.post('/api/admin/puzzles', formData)
+      await createPuzzle(formData)
       alert('Puzzle created!')
-      onSuccess()
+      setFormData({
+        roomId: '',
+        title: '',
+        description: '',
+        flag: '',
+        pointsReward: 100
+      })
     } catch (error) {
-      alert('Failed to create puzzle')
+      alert(error?.message || 'Failed to create puzzle')
     }
   }
+
+  if (!rooms) return <div>Loading rooms...</div>
 
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-group">
         <label>Room</label>
         <select
-          value={formData.room_id}
-          onChange={(e) => setFormData({ ...formData, room_id: e.target.value })}
+          value={formData.roomId}
+          onChange={(e) => setFormData({ ...formData, roomId: e.target.value })}
           required
         >
+          <option value="">Select a room</option>
           {rooms.map(room => (
-            <option key={room.id} value={room.id}>{room.name}</option>
+            <option key={room._id} value={room._id}>{room.name}</option>
           ))}
         </select>
       </div>
@@ -399,8 +394,8 @@ function CreatePuzzleForm({ onSuccess }) {
         <label>Points Reward</label>
         <input
           type="number"
-          value={formData.points_reward}
-          onChange={(e) => setFormData({ ...formData, points_reward: parseFloat(e.target.value) })}
+          value={formData.pointsReward}
+          onChange={(e) => setFormData({ ...formData, pointsReward: parseFloat(e.target.value) })}
         />
       </div>
       <button type="submit" className="btn btn-primary">Create Puzzle</button>
@@ -408,33 +403,33 @@ function CreatePuzzleForm({ onSuccess }) {
   )
 }
 
-function CreateClueForm({ onSuccess }) {
-  const [rooms, setRooms] = useState([])
-  const [puzzles, setPuzzles] = useState([])
+function CreateClueForm() {
+  const rooms = useQuery(api.admin.getAllRooms)
+  const createClue = useMutation(api.admin.createClue)
+
   const [selectedRoom, setSelectedRoom] = useState('')
+  const [puzzles, setPuzzles] = useState([])
   const [formData, setFormData] = useState({
-    puzzle_id: '',
+    puzzleId: '',
     text: '',
     cost: 10,
-    order_index: 0
+    orderIndex: 0
   })
 
+  // Update puzzles when room selection changes
   useEffect(() => {
-    axios.get('/api/rooms').then(res => {
-      setRooms(res.data)
-      if (res.data.length > 0) {
-        setSelectedRoom(res.data[0].id)
-      }
-    })
-  }, [])
+    if (rooms && rooms.length > 0 && !selectedRoom) {
+      setSelectedRoom(rooms[0]._id)
+    }
+  }, [rooms, selectedRoom])
 
   useEffect(() => {
-    if (selectedRoom) {
-      const room = rooms.find(r => r.id === selectedRoom)
+    if (selectedRoom && rooms) {
+      const room = rooms.find(r => r._id === selectedRoom)
       if (room?.puzzles) {
         setPuzzles(room.puzzles)
         if (room.puzzles.length > 0) {
-          setFormData(prev => ({ ...prev, puzzle_id: room.puzzles[0].id }))
+          setFormData(prev => ({ ...prev, puzzleId: room.puzzles[0]._id }))
         }
       }
     }
@@ -443,13 +438,20 @@ function CreateClueForm({ onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await axios.post('/api/admin/clues', formData)
+      await createClue(formData)
       alert('Clue created!')
-      onSuccess()
+      setFormData({
+        puzzleId: '',
+        text: '',
+        cost: 10,
+        orderIndex: 0
+      })
     } catch (error) {
-      alert('Failed to create clue')
+      alert(error?.message || 'Failed to create clue')
     }
   }
+
+  if (!rooms) return <div>Loading rooms...</div>
 
   return (
     <form onSubmit={handleSubmit}>
@@ -457,19 +459,19 @@ function CreateClueForm({ onSuccess }) {
         <label>Room</label>
         <select value={selectedRoom} onChange={(e) => setSelectedRoom(e.target.value)}>
           {rooms.map(room => (
-            <option key={room.id} value={room.id}>{room.name}</option>
+            <option key={room._id} value={room._id}>{room.name}</option>
           ))}
         </select>
       </div>
       <div className="form-group">
         <label>Puzzle</label>
         <select
-          value={formData.puzzle_id}
-          onChange={(e) => setFormData({ ...formData, puzzle_id: e.target.value })}
+          value={formData.puzzleId}
+          onChange={(e) => setFormData({ ...formData, puzzleId: e.target.value })}
           required
         >
           {puzzles.map(puzzle => (
-            <option key={puzzle.id} value={puzzle.id}>{puzzle.title}</option>
+            <option key={puzzle._id} value={puzzle._id}>{puzzle.title}</option>
           ))}
         </select>
       </div>

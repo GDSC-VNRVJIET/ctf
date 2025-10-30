@@ -19,7 +19,9 @@ export default function Login() {
       await login(email, password)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed')
+      // Handle Convex errors
+      const errorMessage = err?.message || err?.data?.message || 'Login failed'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -30,7 +32,7 @@ export default function Login() {
       <div className="card">
         <h1 style={{ marginBottom: '24px', textAlign: 'center' }}>CTF Platform</h1>
         <h2 style={{ marginBottom: '24px', textAlign: 'center', fontSize: '20px' }}>Login</h2>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Email</label>
