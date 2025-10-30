@@ -8,7 +8,7 @@ router = APIRouter()
 @router.post("/signup", response_model=dict)
 def signup(user_data: UserSignup):
     # Check if user exists
-    existing_user = convex_query("getUserByEmail", {"email": user_data.email})
+    existing_user = convex_query("auth:getUserByEmail", {"email": user_data.email})
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     # Create user in Convex

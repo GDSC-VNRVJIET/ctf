@@ -26,25 +26,10 @@ export const getUser = query({
 export const getUserByEmail = query({
   args: { email: v.string() },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("email"), args.email))
-      .first();
-
-    if (!user) return null;
-
-    return {
-      id: user._id,
-      email: user.email,
-      password_hash: user.password_hash,
-      name: user.name,
-      role: user.role,
-      is_verified: user.is_verified,
-      verification_token: user.verification_token,
-      reset_token: user.reset_token,
-      reset_token_expiry: user.reset_token_expiry,
-    };
-  },
+    return await ctx.db.query("users")
+      .filter(q => q.eq(q.field("email"), args.email))
+      .unique();
+  }
 });
 
 // Create user
