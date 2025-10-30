@@ -653,3 +653,60 @@ export const unlockRoom = mutation({
     return { message: `Unlocked ${room.name}` };
   },
 });
+
+// Rules and onboarding functions
+export const getActiveRules = query({
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("rules")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+  },
+});
+
+export const submitRulesFlag = mutation({
+  args: {
+    teamId: v.id("teams"),
+    flag: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      throw new ConvexError("Team not found");
+    }
+
+    // Check if team already submitted
+    if (team.rulesFlagSubmitted) {
+      return { success: false, message: "Team already submitted the rules flag" };
+    }
+
+    const rules = await ctx.db
+      .query("rules")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (!rules) {
+      throw new ConvexError("No active rules found");
+    }
+
+    // Check flag
+    const hashedInput = await hashFlag(args.flag);
+    if (hashedInput === rules.hiddenFlag) {
+      // Award points and mark as submitted
+      await ctx.db.patch(args.teamId, {
+        pointsBalance: team.pointsBalance + 100,
+        rulesFlagSubmitted: true,
+      });
+
+      await ctx.db.insert("auditLogs", {
+        action: "rules_flag_bonus",
+        detailsJson: JSON.stringify({ teamId: args.teamId, points: 100 }),
+        createdAt: Date.now(),
+      });
+
+      return { success: true, points: 100 };
+    } else {
+      return { success: false, message: "Incorrect flag" };
+    }
+  },
+});

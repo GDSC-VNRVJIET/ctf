@@ -8,6 +8,7 @@ export default defineSchema({
     name: v.string(),
     role: v.string(), // player, team_captain, admin, organiser
     isVerified: v.boolean(),
+    isAdmin: v.optional(v.boolean()), // Additional admin flag
     createdAt: v.number(),
   })
     .index("by_email", ["email"]),
@@ -24,6 +25,8 @@ export default defineSchema({
     inviteCode: v.string(),
     createdAt: v.number(),
     immunityUntil: v.optional(v.number()),
+    onboardingComplete: v.optional(v.boolean()), // New field for onboarding
+    rulesFlagSubmitted: v.optional(v.boolean()), // New field for flag submission tracking
   })
     .index("by_name", ["name"])
     .index("by_invite", ["inviteCode"])
@@ -60,9 +63,17 @@ export default defineSchema({
     flagHash: v.string(),
     pointsReward: v.number(),
     isActive: v.boolean(),
+    isRoomQuestion: v.optional(v.boolean()), // New field for room questions
+    skipToRoom: v.optional(v.number()), // New field for skip destination
   })
     .index("by_room", ["roomId"])
     .index("by_active", ["isActive"]),
+
+  rules: defineTable({
+    content: v.string(),
+    hiddenFlag: v.string(),
+    isActive: v.boolean(),
+  }),
 
   clues: defineTable({
     puzzleId: v.id("puzzles"),

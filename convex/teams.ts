@@ -614,3 +614,57 @@ export const getTeamByInviteCode = query({
     return team;
   },
 });
+
+export const getAvailableTeams = query({
+  handler: async (ctx) => {
+    const teams = await ctx.db.query("teams").collect();
+
+    // Filter teams that are not full and get member counts
+    const availableTeams = await Promise.all(
+      teams.map(async (team) => {
+        const members = await ctx.db
+          .query("teamMembers")
+          .withIndex("by_team", (q) => q.eq("teamId", team._id))
+          .collect();
+
+        return {
+          ...team,
+          members: members.length,
+          isAvailable: members.length < team.capacity,
+        };
+      })
+    );
+
+    return availableTeams.filter(team => team.isAvailable);
+  },
+});
+
+export const getUserTeam = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!membership) {
+      return null;
+    }
+
+    const team = await ctx.db.get(membership.teamId);
+    if (!team) {
+      return null;
+    }
+
+    // Get member count
+    const members = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team", (q) => q.eq("teamId", team._id))
+      .collect();
+
+    return {
+      ...team,
+      members: members.length,
+    };
+  },
+});

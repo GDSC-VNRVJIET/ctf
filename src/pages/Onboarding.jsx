@@ -1,0 +1,160 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useMutation, useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import { useAuth } from '../context/AuthContext'
+
+export default function Onboarding() {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const [mode, setMode] = useState('select') // 'select', 'create', 'join'
+  const [formData, setFormData] = useState({
+    teamName: '',
+    teamCapacity: 5,
+    inviteCode: '',
+    selectedTeamId: null
+  })
+
+  const createTeam = useMutation(api.teams.createTeam)
+  const requestJoinTeam = useMutation(api.teams.requestJoinTeam)
+  const teams = useQuery(api.teams.getAvailableTeams)
+
+  const handleCreateTeam = async (e) => {
+    e.preventDefault()
+    try {
+      await createTeam({
+        name: formData.teamName,
+        userId: user._id,
+        capacity: parseInt(formData.teamCapacity)
+      })
+      navigate('/rules')
+    } catch (error) {
+      alert(error?.message || 'Failed to create team')
+    }
+  }
+
+  const handleJoinTeam = async (e) => {
+    e.preventDefault()
+    if (!formData.selectedTeamId || !formData.inviteCode) {
+      alert('Please select a team and enter the invite code')
+      return
+    }
+    try {
+      await requestJoinTeam({ 
+        teamId: formData.selectedTeamId, 
+        userId: user._id,
+        inviteCode: formData.inviteCode
+      })
+      navigate('/rules')
+    } catch (error) {
+      alert(error?.message || 'Failed to join team')
+    }
+  }
+
+  return (
+    <div className="onboarding-container">
+      <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
+        <h1>Welcome to Convergence CTF</h1>
+        <p>Choose how you'd like to participate:</p>
+
+        {mode === 'select' && (
+          <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => setMode('create')}
+              style={{ flex: 1 }}
+            >
+              Create New Team
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setMode('join')}
+              style={{ flex: 1 }}
+            >
+              Join Existing Team
+            </button>
+          </div>
+        )}
+
+        {mode === 'create' && (
+          <form onSubmit={handleCreateTeam} style={{ marginTop: '24px' }}>
+            <div className="form-group">
+              <label>Team Name</label>
+              <input
+                type="text"
+                value={formData.teamName}
+                onChange={(e) => setFormData({ ...formData, teamName: e.target.value })}
+                placeholder="Enter your team name"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Team Capacity</label>
+              <input
+                type="number"
+                min="2"
+                max="10"
+                value={formData.teamCapacity}
+                onChange={(e) => setFormData({ ...formData, teamCapacity: e.target.value })}
+                placeholder="Enter team capacity (2-10)"
+                required
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <button type="submit" className="btn btn-primary">Create Team</button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setMode('select')}
+              >
+                Back
+              </button>
+            </div>
+          </form>
+        )}
+
+        {mode === 'join' && (
+          <form onSubmit={handleJoinTeam} style={{ marginTop: '24px' }}>
+            <h3>Join Existing Team</h3>
+            <div className="form-group">
+              <label>Select Team</label>
+              <select
+                value={formData.selectedTeamId || ''}
+                onChange={(e) => setFormData({ ...formData, selectedTeamId: e.target.value })}
+                required
+                style={{ width: '100%', padding: '8px', marginTop: '4px' }}
+              >
+                <option value="">Choose a team...</option>
+                {teams?.map((team) => (
+                  <option key={team._id} value={team._id}>
+                    {team.name} ({team.members?.length || 0} members)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Invite Code</label>
+              <input
+                type="text"
+                value={formData.inviteCode}
+                onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
+                placeholder="Enter team invite code"
+                required
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <button type="submit" className="btn btn-primary">Join Team</button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setMode('select')}
+              >
+                Back
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}

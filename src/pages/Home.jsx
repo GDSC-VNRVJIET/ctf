@@ -14,7 +14,7 @@ export default function Home() {
           <p className="hero-subtitle">A fun and beginner-friendly cyber quest. Hack, solve, explore.</p>
           <div className="hero-actions">
             {user ? (
-              <Link to="/dashboard" className="btn btn-primary btn-glow">Enter the CTF Realm</Link>
+              <Link to="/onboarding" className="btn btn-primary btn-glow">Start the Heist</Link>
             ) : (
               <Link to="/signup" className="btn btn-primary btn-glow">Get Started</Link>
             )}

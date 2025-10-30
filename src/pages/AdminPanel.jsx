@@ -7,13 +7,15 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('rooms')
   const { userId } = useAuth()
 
-  const rooms = useQuery(api.admin.getAllRooms, activeTab === 'rooms' ? {} : "skip")
-  const teams = useQuery(api.admin.getAllTeams, activeTab === 'teams' ? {} : "skip")
-  const logs = useQuery(api.admin.getLogs, activeTab === 'logs' ? {} : "skip")
+  const rooms = useQuery(api.admin.getAllRooms, activeTab === 'rooms' ? { userId } : "skip")
+  const teams = useQuery(api.admin.getAllTeams, activeTab === 'teams' ? { userId } : "skip")
+  const logs = useQuery(api.admin.getLogs, activeTab === 'logs' ? { userId } : "skip")
+  const puzzles = useQuery(api.admin.getAllPuzzles, activeTab === 'puzzles' ? { userId } : "skip")
 
   const loading = (activeTab === 'rooms' && rooms === undefined) ||
     (activeTab === 'teams' && teams === undefined) ||
-    (activeTab === 'logs' && logs === undefined)
+    (activeTab === 'logs' && logs === undefined) ||
+    (activeTab === 'puzzles' && puzzles === undefined)
 
   return (
     <div>
@@ -26,6 +28,12 @@ export default function AdminPanel() {
               onClick={() => setActiveTab('rooms')}
             >
               Rooms
+            </button>
+            <button
+              className={`btn ${activeTab === 'puzzles' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('puzzles')}
+            >
+              Puzzles
             </button>
             <button
               className={`btn ${activeTab === 'teams' ? 'btn-primary' : 'btn-secondary'}`}
@@ -53,6 +61,7 @@ export default function AdminPanel() {
         ) : (
           <>
             {activeTab === 'rooms' && <RoomsTab rooms={rooms || []} />}
+            {activeTab === 'puzzles' && <PuzzlesTab puzzles={puzzles || []} />}
             {activeTab === 'teams' && <TeamsTab teams={teams || []} />}
             {activeTab === 'logs' && <LogsTab logs={logs || []} />}
             {activeTab === 'create' && <CreateTab />}
@@ -64,6 +73,8 @@ export default function AdminPanel() {
 }
 
 function RoomsTab({ rooms }) {
+  const [editingRoom, setEditingRoom] = useState(null)
+
   return (
     <div className="card">
       <h2>Rooms</h2>
@@ -75,6 +86,7 @@ function RoomsTab({ rooms }) {
             <th>Puzzles</th>
             <th>Unlock Cost</th>
             <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -89,10 +101,69 @@ function RoomsTab({ rooms }) {
                   {room.isActive ? 'Active' : 'Inactive'}
                 </span>
               </td>
+              <td>
+                <button
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setEditingRoom(room)}
+                >
+                  Edit
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {editingRoom && (
+        <EditRoomForm room={editingRoom} onClose={() => setEditingRoom(null)} />
+      )}
+    </div>
+  )
+}
+
+function PuzzlesTab({ puzzles }) {
+  const [editingPuzzle, setEditingPuzzle] = useState(null)
+
+  return (
+    <div className="card">
+      <h2>Puzzles</h2>
+      <table style={{ marginTop: '16px' }}>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Points</th>
+            <th>Room</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {puzzles.map((puzzle) => (
+            <tr key={puzzle._id}>
+              <td>{puzzle.title}</td>
+              <td>{puzzle.type}</td>
+              <td>{puzzle.pointsReward}</td>
+              <td>{puzzle.roomId}</td>
+              <td>
+                <span className={`badge ${puzzle.isActive ? 'badge-success' : 'badge-danger'}`}>
+                  {puzzle.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </td>
+              <td>
+                <button
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setEditingPuzzle(puzzle)}
+                >
+                  Edit
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {editingPuzzle && (
+        <EditPuzzleForm puzzle={editingPuzzle} onClose={() => setEditingPuzzle(null)} />
+      )}
     </div>
   )
 }
@@ -316,8 +387,165 @@ function CreateRoomForm() {
   )
 }
 
+function EditRoomForm({ room, onClose }) {
+  const updateRoom = useMutation(api.admin.updateRoom)
+
+  const [formData, setFormData] = useState({
+    roomId: room._id,
+    name: room.name,
+    orderIndex: room.orderIndex,
+    description: room.description,
+    isChallenge: room.isChallenge,
+    unlockCost: room.unlockCost,
+    challengeInvestment: room.challengeInvestment
+  })
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      await updateRoom(formData)
+      alert('Room updated!')
+      onClose()
+    } catch (error) {
+      alert(error?.message || 'Failed to update room')
+    }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: '16px' }}>
+      <h3>Edit Room</h3>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Name</label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Order Index</label>
+          <input
+            type="number"
+            value={formData.orderIndex}
+            onChange={(e) => setFormData({ ...formData, orderIndex: parseInt(e.target.value) })}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Description</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={3}
+          />
+        </div>
+        <div className="form-group">
+          <label>Unlock Cost</label>
+          <input
+            type="number"
+            value={formData.unlockCost}
+            onChange={(e) => setFormData({ ...formData, unlockCost: parseFloat(e.target.value) })}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button type="submit" className="btn btn-primary">Update Room</button>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function EditPuzzleForm({ puzzle, onClose }) {
+  const { userId } = useAuth()
+  const rooms = useQuery(api.admin.getAllRooms, { userId })
+  const updatePuzzle = useMutation(api.admin.updatePuzzle)
+
+  const [formData, setFormData] = useState({
+    puzzleId: puzzle._id,
+    title: puzzle.title,
+    type: puzzle.type,
+    description: puzzle.description,
+    flag: '', // Don't show existing flag for security
+    pointsReward: puzzle.pointsReward,
+    isActive: puzzle.isActive
+  })
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      await updatePuzzle(formData)
+      alert('Puzzle updated!')
+      onClose()
+    } catch (error) {
+      alert(error?.message || 'Failed to update puzzle')
+    }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: '16px' }}>
+      <h3>Edit Puzzle</h3>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Title</label>
+          <input
+            type="text"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Type</label>
+          <select
+            value={formData.type}
+            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+          >
+            <option value="static_flag">Static Flag</option>
+            <option value="interactive">Interactive</option>
+            <option value="question">Question</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Description</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={3}
+          />
+        </div>
+        <div className="form-group">
+          <label>New Flag (leave empty to keep current)</label>
+          <input
+            type="text"
+            value={formData.flag}
+            onChange={(e) => setFormData({ ...formData, flag: e.target.value })}
+            placeholder="Enter new flag to update"
+          />
+        </div>
+        <div className="form-group">
+          <label>Points Reward</label>
+          <input
+            type="number"
+            value={formData.pointsReward}
+            onChange={(e) => setFormData({ ...formData, pointsReward: parseInt(e.target.value) })}
+            required
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button type="submit" className="btn btn-primary">Update Puzzle</button>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 function CreatePuzzleForm() {
-  const rooms = useQuery(api.admin.getAllRooms)
+  const { userId } = useAuth()
+  const rooms = useQuery(api.admin.getAllRooms, { userId })
   const createPuzzle = useMutation(api.admin.createPuzzle)
 
   const [formData, setFormData] = useState({
@@ -403,7 +631,8 @@ function CreatePuzzleForm() {
 }
 
 function CreateClueForm() {
-  const rooms = useQuery(api.admin.getAllRooms)
+  const { userId } = useAuth()
+  const rooms = useQuery(api.admin.getAllRooms, { userId })
   const createClue = useMutation(api.admin.createClue)
 
   const [selectedRoom, setSelectedRoom] = useState('')

@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Home from './pages/Home'
+import Onboarding from './pages/Onboarding'
+import Rules from './pages/Rules'
 import Dashboard from './pages/Dashboard'
 import TeamManagement from './pages/TeamManagement'
 import RoomView from './pages/RoomView'
@@ -39,6 +41,13 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          
+          <Route path="/onboarding" element={
+            <PrivateRoute><Onboarding /></PrivateRoute>
+          } />
+          <Route path="/rules" element={
+            <PrivateRoute><Rules /></PrivateRoute>
+          } />
           
           <Route path="/dashboard" element={
             <PrivateRoute><Dashboard /></PrivateRoute>

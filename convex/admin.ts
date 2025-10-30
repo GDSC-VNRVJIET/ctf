@@ -460,3 +460,95 @@ export const getAllPuzzles = query({
     return await ctx.db.query("puzzles").collect();
   },
 });
+
+// Team moderation functions
+export const skipQuestion = mutation({
+  args: {
+    userId: v.id("users"),
+    teamId: v.id("teams"),
+    puzzleId: v.id("puzzles"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
+
+    const puzzle = await ctx.db.get(args.puzzleId);
+    if (!puzzle) {
+      throw new ConvexError("Puzzle not found");
+    }
+
+    // Check if already submitted
+    const existingSubmission = await ctx.db
+      .query("submissions")
+      .withIndex("by_team_and_puzzle", (q) =>
+        q.eq("teamId", args.teamId).eq("puzzleId", args.puzzleId)
+      )
+      .first();
+
+    if (existingSubmission && existingSubmission.isCorrect) {
+      throw new ConvexError("Question already solved by team");
+    }
+
+    // Create or update submission as correct
+    if (existingSubmission) {
+      await ctx.db.patch(existingSubmission._id, {
+        isCorrect: true,
+        submissionTime: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("submissions", {
+        teamId: args.teamId,
+        puzzleId: args.puzzleId,
+        submittedFlag: "ADMIN_SKIP",
+        isCorrect: true,
+        submissionTime: Date.now(),
+      });
+    }
+
+    // Award points
+    const team = await ctx.db.get(args.teamId);
+    if (team) {
+      await ctx.db.patch(args.teamId, {
+        pointsBalance: team.pointsBalance + puzzle.pointsReward,
+      });
+    }
+
+    await ctx.db.insert("auditLogs", {
+      userId: args.userId,
+      action: "skip_question",
+      detailsJson: JSON.stringify({ teamId: args.teamId, puzzleId: args.puzzleId }),
+      createdAt: Date.now(),
+    });
+
+    return { message: "Question skipped for team" };
+  },
+});
+
+export const awardPoints = mutation({
+  args: {
+    userId: v.id("users"),
+    teamId: v.id("teams"),
+    points: v.number(),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
+
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      throw new ConvexError("Team not found");
+    }
+
+    await ctx.db.patch(args.teamId, {
+      pointsBalance: team.pointsBalance + args.points,
+    });
+
+    await ctx.db.insert("auditLogs", {
+      userId: args.userId,
+      action: "award_points",
+      detailsJson: JSON.stringify({ teamId: args.teamId, points: args.points, reason: args.reason }),
+      createdAt: Date.now(),
+    });
+
+    return { message: `Awarded ${args.points} points to team` };
+  },
+});
