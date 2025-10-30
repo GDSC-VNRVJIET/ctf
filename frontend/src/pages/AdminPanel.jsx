@@ -1,36 +1,31 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('rooms')
-  const [rooms, setRooms] = useState([])
-  const [teams, setTeams] = useState([])
-  const [logs, setLogs] = useState([])
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchData()
-  }, [activeTab])
+  // Convex queries
+  const rooms = useQuery(activeTab === 'rooms' ? api.game.getRooms : 'skip')
+  const teams = useQuery(activeTab === 'teams' ? api.admin.getAllTeams : 'skip')
+  const logs = useQuery(activeTab === 'logs' ? api.admin.getAuditLogs : 'skip')
 
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      if (activeTab === 'rooms') {
-        const res = await axios.get('/api/rooms')
-        setRooms(res.data)
-      } else if (activeTab === 'teams') {
-        const res = await axios.get('/api/admin/teams')
-        setTeams(res.data)
-      } else if (activeTab === 'logs') {
-        const res = await axios.get('/api/admin/logs')
-        setLogs(res.data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Convex mutations
+  const createRoomMutation = useMutation(api.admin.createRoom)
+  const updateRoomMutation = useMutation(api.admin.updateRoom)
+  const deleteRoomMutation = useMutation(api.admin.deleteRoom)
+  const createPuzzleMutation = useMutation(api.admin.createPuzzle)
+  const updatePuzzleMutation = useMutation(api.admin.updatePuzzle)
+  const deletePuzzleMutation = useMutation(api.admin.deletePuzzle)
+  const createClueMutation = useMutation(api.admin.createClue)
+  const overrideTeamProgressMutation = useMutation(api.admin.overrideTeamProgress)
+  const refundPointsMutation = useMutation(api.admin.refundPoints)
+  const disableTeamMutation = useMutation(api.admin.disableTeam)
+  const deleteTeamAdminMutation = useMutation(api.admin.deleteTeamAdmin)
+
+  const loading = (activeTab === 'rooms' && !rooms) ||
+                  (activeTab === 'teams' && !teams) ||
+                  (activeTab === 'logs' && !logs)
 
   return (
     <div>
@@ -115,12 +110,16 @@ function RoomsTab({ rooms, onRefresh }) {
 }
 
 function TeamsTab({ teams, onRefresh }) {
+  const refundPointsMutation = useMutation(api.admin.refundPoints)
+  const disableTeamMutation = useMutation(api.admin.disableTeam)
+  const deleteTeamAdminMutation = useMutation(api.admin.deleteTeamAdmin)
+
   const handleRefund = async (teamId) => {
     const amount = prompt('Enter refund amount:')
     if (!amount) return
 
     try {
-      await axios.post(`/api/admin/teams/${teamId}/refund?amount=${amount}`)
+      await refundPointsMutation({ teamId, amount: parseInt(amount) })
       alert('Points refunded')
       onRefresh()
     } catch (error) {
@@ -132,7 +131,7 @@ function TeamsTab({ teams, onRefresh }) {
     if (!confirm('Disable this team?')) return
 
     try {
-      await axios.post(`/api/admin/teams/${teamId}/disable`)
+      await disableTeamMutation({ teamId })
       alert('Team disabled')
       onRefresh()
     } catch (error) {
@@ -144,7 +143,7 @@ function TeamsTab({ teams, onRefresh }) {
     if (!confirm('Delete this team permanently? This action cannot be undone!')) return
 
     try {
-      await axios.delete(`/api/admin/teams/${teamId}`)
+      await deleteTeamAdminMutation({ teamId })
       alert('Team deleted')
       onRefresh()
     } catch (error) {
@@ -264,6 +263,8 @@ function CreateTab({ onRefresh }) {
 }
 
 function CreateRoomForm({ onSuccess }) {
+  const createRoomMutation = useMutation(api.admin.createRoom)
+
   const [formData, setFormData] = useState({
     name: '',
     order_index: 1,
@@ -275,7 +276,7 @@ function CreateRoomForm({ onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await axios.post('/api/admin/rooms', formData)
+      await createRoomMutation(formData)
       alert('Room created!')
       onSuccess()
     } catch (error) {
@@ -325,7 +326,9 @@ function CreateRoomForm({ onSuccess }) {
 }
 
 function CreatePuzzleForm({ onSuccess }) {
-  const [rooms, setRooms] = useState([])
+  const rooms = useQuery(api.game.getRooms)
+  const createPuzzleMutation = useMutation(api.admin.createPuzzle)
+
   const [formData, setFormData] = useState({
     room_id: '',
     title: '',
@@ -335,18 +338,15 @@ function CreatePuzzleForm({ onSuccess }) {
   })
 
   useEffect(() => {
-    axios.get('/api/rooms').then(res => {
-      setRooms(res.data)
-      if (res.data.length > 0) {
-        setFormData(prev => ({ ...prev, room_id: res.data[0].id }))
-      }
-    })
-  }, [])
+    if (rooms && rooms.length > 0) {
+      setFormData(prev => ({ ...prev, room_id: rooms[0].id }))
+    }
+  }, [rooms])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await axios.post('/api/admin/puzzles', formData)
+      await createPuzzleMutation(formData)
       alert('Puzzle created!')
       onSuccess()
     } catch (error) {
@@ -409,8 +409,10 @@ function CreatePuzzleForm({ onSuccess }) {
 }
 
 function CreateClueForm({ onSuccess }) {
-  const [rooms, setRooms] = useState([])
-  const [puzzles, setPuzzles] = useState([])
+  const rooms = useQuery(api.game.getRooms)
+  const puzzles = useQuery(selectedRoom ? api.game.getRoomPuzzles : 'skip', selectedRoom ? { roomId: selectedRoom } : undefined)
+  const createClueMutation = useMutation(api.admin.createClue)
+
   const [selectedRoom, setSelectedRoom] = useState('')
   const [formData, setFormData] = useState({
     puzzle_id: '',
@@ -420,30 +422,21 @@ function CreateClueForm({ onSuccess }) {
   })
 
   useEffect(() => {
-    axios.get('/api/rooms').then(res => {
-      setRooms(res.data)
-      if (res.data.length > 0) {
-        setSelectedRoom(res.data[0].id)
-      }
-    })
-  }, [])
+    if (rooms && rooms.length > 0 && !selectedRoom) {
+      setSelectedRoom(rooms[0].id)
+    }
+  }, [rooms, selectedRoom])
 
   useEffect(() => {
-    if (selectedRoom) {
-      const room = rooms.find(r => r.id === selectedRoom)
-      if (room?.puzzles) {
-        setPuzzles(room.puzzles)
-        if (room.puzzles.length > 0) {
-          setFormData(prev => ({ ...prev, puzzle_id: room.puzzles[0].id }))
-        }
-      }
+    if (puzzles && puzzles.length > 0) {
+      setFormData(prev => ({ ...prev, puzzle_id: puzzles[0].id }))
     }
-  }, [selectedRoom, rooms])
+  }, [puzzles])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await axios.post('/api/admin/clues', formData)
+      await createClueMutation(formData)
       alert('Clue created!')
       onSuccess()
     } catch (error) {

@@ -1,43 +1,35 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import axios from 'axios'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const [team, setTeam] = useState(null)
-  const [rooms, setRooms] = useState([])
-  const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  // Convex queries
+  const userTeams = useQuery(api.teams.getUserTeams, user ? { userId: user.id } : 'skip')
+  const rooms = useQuery(api.game.getRooms)
 
-  const fetchData = async () => {
-    try {
-      const [teamRes, roomsRes] = await Promise.all([
-        axios.get('/api/teams/my/team').catch(() => ({ data: null })),
-        axios.get('/api/rooms')
-      ])
-      setTeam(teamRes.data)
-      setRooms(roomsRes.data)
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Convex mutations
+  const leaveTeamMutation = useMutation(api.teams.leaveTeam)
+
+  const team = userTeams?.[0] || null
+  const loading = !rooms || (user && !userTeams)
 
   const handleLeaveTeam = async () => {
     if (!confirm('Are you sure you want to leave this team?')) return
-    
+
     try {
-      await axios.post('/api/teams/leave')
+      await leaveTeamMutation({
+        teamId: team.id,
+        userId: user.id
+      })
       alert('Left team successfully!')
       window.location.reload()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to leave team')
+      alert(error.message || 'Failed to leave team')
     }
   }
 

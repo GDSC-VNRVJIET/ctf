@@ -1,95 +1,86 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import axios from 'axios'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 
 export default function TeamManagement() {
   const { user } = useAuth()
-  const [team, setTeam] = useState(null)
-  const [members, setMembers] = useState([])
-  const [joinRequests, setJoinRequests] = useState([])
-  const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
 
-  const fetchTeam = async () => {
-    try {
-      const response = await axios.get('/api/teams/my/team')
-      const teamData = response.data
-      setTeam(teamData)
+  // Convex queries
+  const userTeams = useQuery(api.teams.getUserTeams, user ? { userId: user.id } : 'skip')
+  const teamMembers = useQuery(api.teams.getTeamMembers, userTeams?.[0] ? { teamId: userTeams[0].id } : 'skip')
+  const joinRequests = useQuery(api.teams.getTeamJoinRequests, userTeams?.[0] ? { teamId: userTeams[0].id } : 'skip')
 
-      // Fetch members
-      const membersResponse = await axios.get(`/api/teams/${teamData.id}/members`)
-      setMembers(membersResponse.data)
+  // Convex mutations
+  const createTeamMutation = useMutation(api.teams.createTeam)
+  const requestJoinTeamMutation = useMutation(api.teams.requestJoinTeam)
+  const respondToJoinRequestMutation = useMutation(api.teams.respondToJoinRequest)
+  const leaveTeamMutation = useMutation(api.teams.leaveTeam)
+  const deleteTeamAdminMutation = useMutation(api.admin.deleteTeamAdmin)
 
-      // Fetch join requests if user is captain
-      if (teamData.captain_user_id === user.id) {
-        const requestsResponse = await axios.get(`/api/teams/${teamData.id}/join-requests`)
-        setJoinRequests(requestsResponse.data)
-      } else {
-        setJoinRequests([])
-      }
-    } catch (error) {
-      if (error.response?.status === 404) {
-        setTeam(null)
-        setMembers([])
-        setJoinRequests([])
-      } else {
-        alert('Failed to load team data')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchTeam()
-  }, [])
+  const team = userTeams?.[0] || null
+  const members = teamMembers || []
+  const requests = joinRequests || []
+  const loading = user && (!userTeams || (team && !teamMembers) || (team && !joinRequests))
 
   const handleAcceptRequest = async (requestId) => {
     if (!confirm('Accept this join request?')) return
-    
+
     try {
-      await axios.post(`/api/teams/${team.id}/join-requests/${requestId}/accept`)
+      await respondToJoinRequestMutation({
+        requestId: requestId,
+        accept: true,
+        adminId: user.id
+      })
       alert('Request accepted!')
-      fetchTeam()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to accept request')
+      alert(error.message || 'Failed to accept request')
     }
   }
 
   const handleRejectRequest = async (requestId) => {
     if (!confirm('Reject this join request?')) return
-    
+
     try {
-      await axios.post(`/api/teams/${team.id}/join-requests/${requestId}/reject`)
+      await respondToJoinRequestMutation({
+        requestId: requestId,
+        accept: false,
+        adminId: user.id
+      })
       alert('Request rejected!')
-      fetchTeam()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to reject request')
+      alert(error.message || 'Failed to reject request')
     }
   }
 
   const handleRemoveMember = async (userId, userName) => {
     if (!confirm(`Remove ${userName} from the team?`)) return
-    
+
     try {
-      await axios.delete(`/api/teams/${team.id}/members/${userId}`)
+      await leaveTeamMutation({
+        teamId: team.id,
+        userId: userId
+      })
       alert('Member removed successfully!')
-      fetchTeam()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to remove member')
+      alert(error.message || 'Failed to remove member')
     }
   }
 
   const handleDeleteTeam = async () => {
     if (!confirm('Are you sure you want to delete this team? This action cannot be undone!')) return
-    
+
     try {
-      await axios.delete(`/api/teams/${team.id}`)
+      await deleteTeamAdminMutation({
+        teamId: team.id,
+        adminId: user.id
+      })
       alert('Team deleted successfully!')
       window.location.reload()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to delete team')
+      alert(error.message || 'Failed to delete team')
     }
   }
 
@@ -231,17 +222,24 @@ function CreateTeamModal({ onClose, onSuccess }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const createTeamMutation = useMutation(api.teams.createTeam)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      await axios.post('/api/teams', { name, description, capacity })
+      await createTeamMutation({
+        name,
+        description,
+        max_members: capacity,
+        creator_id: user.id
+      })
       onSuccess()
       onClose()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to create team')
+      setError(err.message || 'Failed to create team')
     } finally {
       setLoading(false)
     }
@@ -298,22 +296,29 @@ function JoinTeamModal({ onClose, onSuccess }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const teamByInvite = useQuery(api.teams.getTeamByInviteCode, inviteCode ? { inviteCode } : 'skip')
+  const requestJoinTeamMutation = useMutation(api.teams.requestJoinTeam)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      // Get team by invite code
-      const teamRes = await axios.get(`/api/teams/by-invite/${inviteCode}`)
-      const team = teamRes.data
+      if (!teamByInvite) {
+        throw new Error('Invalid invite code')
+      }
 
-      await axios.post(`/api/teams/${team.id}/join`, { invite_code: inviteCode })
+      await requestJoinTeamMutation({
+        teamId: teamByInvite.id,
+        userId: user.id
+      })
+
       alert('Join request sent successfully! Wait for captain approval.')
       onSuccess()
       onClose()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to send join request')
+      setError(err.message || 'Failed to send join request')
     } finally {
       setLoading(false)
     }

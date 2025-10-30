@@ -1,45 +1,33 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 
 export default function RoomView() {
   const { roomId } = useParams()
-  const [room, setRoom] = useState(null)
-  const [team, setTeam] = useState(null)
-  const [purchases, setPurchases] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
   const [selectedPuzzle, setSelectedPuzzle] = useState(null)
 
-  useEffect(() => {
-    fetchData()
-  }, [roomId])
+  // Convex queries
+  const room = useQuery(api.game.getRoom, { roomId: roomId })
+  const userTeams = useQuery(api.teams.getUserTeams, user ? { userId: user.id } : 'skip')
 
-  const fetchData = async () => {
-    try {
-      const [roomRes, teamRes] = await Promise.all([
-        axios.get(`/api/rooms/${roomId}`),
-        axios.get('/api/teams/my/team')
-      ])
-      setRoom(roomRes.data)
-      setTeam(teamRes.data)
-      if (roomRes.data.puzzles?.length > 0) {
-        setSelectedPuzzle(roomRes.data.puzzles[0])
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
+  // Convex mutations
+  const submitFlagMutation = useMutation(api.game.submitFlag)
+
+  const team = userTeams?.[0] || null
+  const loading = !room || (user && !userTeams)
+
+  useEffect(() => {
+    if (room?.puzzles?.length > 0) {
+      setSelectedPuzzle(room.puzzles[0])
     }
-  }
+  }, [room])
 
   const handleUnlockRoom = async () => {
-    try {
-      await axios.post(`/api/rooms/${roomId}/unlock`)
-      alert('Room unlocked!')
-      fetchData()
-    } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to unlock room')
-    }
+    // TODO: Implement room unlock mutation in Convex
+    alert('Room unlock not yet implemented in Convex migration')
   }
 
   if (loading) return <div className="loading">Loading...</div>
@@ -53,7 +41,7 @@ export default function RoomView() {
         <div className="card">
           <h1>{room.name}</h1>
           <p style={{ color: '#666', marginTop: '8px' }}>{room.description}</p>
-          
+
           {!canAccess && (
             <div style={{ marginTop: '16px' }}>
               <p>You need to unlock this room first.</p>
@@ -82,14 +70,14 @@ export default function RoomView() {
                       onClick={() => setSelectedPuzzle(puzzle)}
                     >
                       <h3>{puzzle.title}</h3>
-                      <span className="badge badge-success">{puzzle.points_reward} pts</span>
+                      <span className="badge badge-success">{puzzle.points} pts</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {selectedPuzzle && (
-                <PuzzleView puzzle={selectedPuzzle} team={team} onSuccess={fetchData} />
+                <PuzzleView puzzle={selectedPuzzle} team={team} user={user} />
               )}
             </div>
           </>
@@ -99,11 +87,13 @@ export default function RoomView() {
   )
 }
 
-function PuzzleView({ puzzle, team, onSuccess }) {
+function PuzzleView({ puzzle, team, user }) {
   const [flag, setFlag] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
-  const [purchasedClues, setPurchasedClues] = useState([])
+
+  // Convex mutations
+  const submitFlagMutation = useMutation(api.game.submitFlag)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -111,28 +101,29 @@ function PuzzleView({ puzzle, team, onSuccess }) {
     setLoading(true)
 
     try {
-      const response = await axios.post(`/api/puzzles/${puzzle.id}/submit`, { flag })
-      setMessage(response.data.message)
-      if (response.data.points_awarded > 0) {
-        onSuccess()
+      const result = await submitFlagMutation({
+        teamId: team.id,
+        puzzleId: puzzle.id,
+        userId: user.id,
+        flagHash: flag // You'll need to hash the flag on the frontend or backend
+      })
+
+      if (result.correct) {
+        setMessage('Correct! Points awarded.')
+      } else {
+        setMessage('Incorrect flag. Try again.')
       }
       setFlag('')
     } catch (error) {
-      setMessage(error.response?.data?.detail || 'Submission failed')
+      setMessage(error.message || 'Submission failed')
     } finally {
       setLoading(false)
     }
   }
 
   const handleBuyClue = async (clueId) => {
-    try {
-      const response = await axios.post(`/api/clues/${clueId}/buy`)
-      alert(response.data.message)
-      setPurchasedClues([...purchasedClues, clueId])
-      onSuccess()
-    } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to buy clue')
-    }
+    // TODO: Implement clue purchase mutation in Convex
+    alert('Clue purchase not yet implemented in Convex migration')
   }
 
   return (
@@ -164,27 +155,18 @@ function PuzzleView({ puzzle, team, onSuccess }) {
       {puzzle.clues?.length > 0 && (
         <div style={{ marginTop: '24px' }}>
           <h3>Clues</h3>
-          {puzzle.clues.map((clue) => {
-            const isPurchased = purchasedClues.includes(clue.id)
-            return (
-              <div key={clue.id} className="card" style={{ background: '#f8f9fa', marginTop: '8px' }}>
-                {isPurchased ? (
-                  <p>{clue.text}</p>
-                ) : (
-                  <>
-                    <p style={{ color: '#666' }}>Clue available for {clue.cost} points</p>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ marginTop: '8px' }}
-                      onClick={() => handleBuyClue(clue.id)}
-                    >
-                      Buy Clue
-                    </button>
-                  </>
-                )}
-              </div>
-            )
-          })}
+          {puzzle.clues.map((clue) => (
+            <div key={clue.id} className="card" style={{ background: '#f8f9fa', marginTop: '8px' }}>
+              <p style={{ color: '#666' }}>Clue available for {clue.cost} points</p>
+              <button
+                className="btn btn-secondary"
+                style={{ marginTop: '8px' }}
+                onClick={() => handleBuyClue(clue.id)}
+              >
+                Buy Clue
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>

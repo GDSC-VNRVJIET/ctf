@@ -1,44 +1,34 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 
 export default function Leaderboard() {
-  const [leaderboard, setLeaderboard] = useState([])
-  const [team, setTeam] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
 
-  useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, 5000) // Refresh every 5 seconds
-    return () => clearInterval(interval)
-  }, [])
+  // Convex queries
+  const leaderboard = useQuery(api.game.getLeaderboard)
+  const userTeams = useQuery(api.teams.getUserTeams, user ? { userId: user.id } : 'skip')
 
-  const fetchData = async () => {
-    try {
-      const [leaderboardRes, teamRes] = await Promise.all([
-        axios.get('/api/leaderboard'),
-        axios.get('/api/teams/my/team').catch(() => ({ data: null }))
-      ])
-      setLeaderboard(leaderboardRes.data)
-      setTeam(teamRes.data)
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Convex mutations
+  const performActionMutation = useMutation(api.game.performAction)
+
+  const team = userTeams?.[0] || null
+  const loading = !leaderboard || (user && !userTeams)
 
   const handleAttack = async (targetTeamId) => {
     if (!confirm('Attack this team? This will cost 50 points.')) return
 
     try {
-      await axios.post('/api/actions', {
-        action_type: 'attack',
-        target_team_id: targetTeamId
+      await performActionMutation({
+        teamId: team.id,
+        actionType: 'attack',
+        targetTeamId: targetTeamId,
+        duration: 300 // 5 minutes
       })
       alert('Attack launched!')
-      fetchData()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Attack failed')
+      alert(error.message || 'Attack failed')
     }
   }
 
@@ -46,13 +36,14 @@ export default function Leaderboard() {
     if (!confirm('Activate shield? This will cost 30 points.')) return
 
     try {
-      await axios.post('/api/actions', {
-        action_type: 'defend'
+      await performActionMutation({
+        teamId: team.id,
+        actionType: 'defend',
+        duration: 600 // 10 minutes
       })
       alert('Shield activated!')
-      fetchData()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to activate shield')
+      alert(error.message || 'Failed to activate shield')
     }
   }
 

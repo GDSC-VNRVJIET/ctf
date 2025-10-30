@@ -28,6 +28,41 @@ A full-featured web-based CTF platform with team-based gameplay, real-time monit
 - Axios for API calls
 - Vite for build tooling
 
+**Database & Real-time:**
+- **Convex**: Cloud database with real-time subscriptions
+- **Team Collaboration**: Multi-developer support with cloud sync
+- **Live Updates**: Real-time leaderboard and game state
+
+## Quick Start with Convex Cloud
+
+### 1. Set up Convex Cloud (Required for Team Development)
+
+**Automated Setup:**
+```bash
+# Linux/Mac
+./setup-convex-cloud.sh
+
+# Windows
+setup-convex-cloud.bat
+```
+
+**Manual Setup:**
+1. Sign up at [convex.dev](https://convex.dev)
+2. Create a new project
+3. Run: `npx convex login && npx convex dev --once && npx convex deploy`
+
+### 2. Deploy to Render
+
+```bash
+# Linux/Mac
+./setup-render-deployment.sh
+
+# Windows
+setup-render-deployment.bat
+```
+
+For detailed instructions, see `CONVEX_CLOUD_SETUP.md` and `RENDER_DEPLOYMENT.md`.
+
 ## Installation
 
 ### Backend Setup
@@ -205,6 +240,22 @@ Edit `frontend/vite.config.js`:
 - Immunity duration: 3 minutes after attack
 
 ## Production Deployment
+
+### Quick Deploy to Render (Free Tier)
+
+The platform is configured for easy deployment to Render's free tier:
+
+1. **Setup**: Run the automated setup script:
+   - Linux/Mac: `./setup-render-deployment.sh`
+   - Windows: `setup-render-deployment.bat`
+
+2. **Deploy**: Push to GitHub and use Render's Blueprint deployment with the included `render.yaml`
+
+3. **Configure**: The script will prompt for your Convex deployment URL and update all configuration files
+
+For detailed instructions, see `RENDER_DEPLOYMENT.md`.
+
+### Manual Production Setup
 
 1. Change `SECRET_KEY` in `backend/auth.py`
 2. Set up proper email service for OTP delivery

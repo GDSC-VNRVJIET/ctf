@@ -4,15 +4,12 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
 import secrets
 import hashlib
 import re
-from sqlalchemy import and_
 import json
 
-from database import get_db
-from models import User, Submission, Team, AuditLog
+from services.convex_client import convex_query, convex_mutation
 
 SECRET_KEY = "your-secret-key-change-in-production"
 ALGORITHM = "HS256"
@@ -70,50 +67,48 @@ def validate_flag_format(flag: str) -> bool:
     
     return re.match(pattern, flag) is not None
 
-def check_submission_rate_limit(db: Session, team_id: str, puzzle_id: str, limit: int = 10, window_minutes: int = 5):
+def check_submission_rate_limit(team_id: str, puzzle_id: str, limit: int = 10, window_minutes: int = 5):
     """Rate limit flag submissions per team per puzzle"""
     cutoff = datetime.utcnow() - timedelta(minutes=window_minutes)
     
-    recent_submissions = db.query(Submission).filter(
-        and_(
-            Submission.team_id == team_id,
-            Submission.puzzle_id == puzzle_id,
-            Submission.submission_time >= cutoff
-        )
-    ).count()
+    recent_submissions = convex_query("getRecentSubmissions", {
+        "team_id": team_id,
+        "puzzle_id": puzzle_id,
+        "cutoff": cutoff.isoformat()
+    })
     
-    if recent_submissions >= limit:
+    if len(recent_submissions) >= limit:
         raise HTTPException(
             status_code=429,
             detail=f"Too many flag submissions. Please wait before trying again."
         )
 
-def verify_team_state(team: Team) -> None:
+def verify_team_state(team: dict) -> None:
     """Verify team is in valid state for game participation"""
-    if team.points_balance < 0:
+    if team.get("points_balance", 0) < 0:
         raise HTTPException(status_code=403, detail="Team in invalid state")
     
-    if team.immunity_until and team.immunity_until > datetime.utcnow():
+    if team.get("immunity_until") and team["immunity_until"] > datetime.utcnow():
         # Team has immunity, but check if it's legitimate
         pass
 
-def log_security_event(db: Session, user_id: str, action: str, details: dict, ip_address: Optional[str] = None):
+def log_security_event(user_id: str, action: str, details: dict, ip_address: Optional[str] = None):
     """Log security-relevant events"""
-    log = AuditLog(
-        user_id=user_id,
-        action=action,
-        details_json=json.dumps({
+    convex_mutation("logActivity", {
+        "user_id": user_id,
+        "action": action,
+        "details": {
             **details,
             "ip_address": ip_address,
             "timestamp": datetime.utcnow().isoformat()
-        })
-    )
-    db.add(log)
+        }
+    })
+
+from services.convex_client import convex_query
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-) -> User:
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> dict:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -128,21 +123,21 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
     
-    user = db.query(User).filter(User.id == user_id).first()
+    user = convex_query("getUserById", {"user_id": user_id})
     if user is None:
         raise credentials_exception
     return user
 
-def require_verified(user: User = Depends(get_current_user)) -> User:
-    if not user.is_verified:
+def require_verified(user: dict = Depends(get_current_user)) -> dict:
+    if not user.get("is_verified", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email not verified"
         )
     return user
 
-def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.role not in ["admin", "organiser"]:
+def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user.get("role") not in ["admin", "organiser"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"

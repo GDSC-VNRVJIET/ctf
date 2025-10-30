@@ -1,37 +1,30 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 
 export default function Shop() {
-  const [perks, setPerks] = useState([])
-  const [team, setTeam] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  // Convex queries
+  const perks = useQuery(api.game.getPerks)
+  const userTeams = useQuery(api.teams.getUserTeams, user ? { userId: user.id } : 'skip')
 
-  const fetchData = async () => {
-    try {
-      const [perksRes, teamRes] = await Promise.all([
-        axios.get('/api/perks'),
-        axios.get('/api/teams/my/team')
-      ])
-      setPerks(perksRes.data)
-      setTeam(teamRes.data)
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Convex mutations
+  const purchasePerkMutation = useMutation(api.game.purchasePerk)
+
+  const team = userTeams?.[0] || null
+  const loading = !perks || (user && !userTeams)
 
   const handleBuyPerk = async (perkId) => {
     try {
-      await axios.post(`/api/perks/${perkId}/buy`)
+      await purchasePerkMutation({
+        teamId: team.id,
+        perkId: perkId
+      })
       alert('Perk purchased successfully!')
-      fetchData()
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to purchase perk')
+      alert(error.message || 'Failed to purchase perk')
     }
   }
 
@@ -48,7 +41,7 @@ export default function Shop() {
         </div>
 
         <div className="grid grid-3">
-          {perks.map((perk) => (
+          {perks?.map((perk) => (
             <div key={perk.id} className="card">
               <h3>{perk.name}</h3>
               <p style={{ margin: '12px 0', color: '#666', minHeight: '60px' }}>
@@ -56,13 +49,8 @@ export default function Shop() {
               </p>
               <div style={{ marginBottom: '12px' }}>
                 <span className="badge badge-warning">{perk.cost} points</span>
-                {perk.is_one_time && (
-                  <span className="badge badge-info" style={{ marginLeft: '8px' }}>
-                    One-time
-                  </span>
-                )}
-                <span className={`badge badge-${perk.perk_type === 'attack' ? 'danger' : perk.perk_type === 'defense' ? 'success' : 'info'}`} style={{ marginLeft: '8px' }}>
-                  {perk.perk_type}
+                <span className={`badge badge-${perk.effect_type === 'attack' ? 'danger' : perk.effect_type === 'defense' ? 'success' : 'info'}`} style={{ marginLeft: '8px' }}>
+                  {perk.effect_type}
                 </span>
               </div>
               <button
@@ -77,7 +65,7 @@ export default function Shop() {
           ))}
         </div>
 
-        {perks.length === 0 && (
+        {(!perks || perks.length === 0) && (
           <div className="card">
             <p style={{ textAlign: 'center', color: '#666' }}>No perks available</p>
           </div>
