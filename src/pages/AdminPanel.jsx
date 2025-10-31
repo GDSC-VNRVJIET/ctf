@@ -312,7 +312,7 @@ function CreateTab() {
 
         {contentType === 'room' && <CreateRoomForm />}
         {contentType === 'puzzle' && <CreatePuzzleForm />}
-        {contentType === 'clue' && <CreateClueForm />}
+          {contentType === 'clue' && <CreateClueForm />}
       </div>
     </div>
   )
@@ -634,68 +634,57 @@ function CreatePuzzleForm() {
 }
 
 function CreateClueForm() {
-  const { userId } = useAuth()
-  const rooms = useQuery(api.admin.getAllRooms, { userId })
-  const createClue = useMutation(api.admin.createClue)
-
-  const [selectedRoom, setSelectedRoom] = useState('')
-  const [puzzles, setPuzzles] = useState([])
+  const { userId } = useAuth();
+  const rooms = useQuery(api.admin.getAllRooms, { userId });
+  const allPuzzles = useQuery(api.admin.getAllPuzzles, { userId });
+  const createClue = useMutation(api.admin.createClue);
+  
+  const [selectedRoom, setSelectedRoom] = useState('');
   const [formData, setFormData] = useState({
     puzzleId: '',
     text: '',
     cost: 10,
     orderIndex: 0
-  })
-
-  // Update puzzles when room selection changes
+  });
+  
   useEffect(() => {
     if (rooms && rooms.length > 0 && !selectedRoom) {
-      setSelectedRoom(rooms[0]._id)
+      setSelectedRoom(rooms[0]._id);
     }
-  }, [rooms, selectedRoom])
-
+  }, [rooms, selectedRoom]);
+  
   useEffect(() => {
-    if (selectedRoom && rooms) {
-      const room = rooms.find(r => r._id === selectedRoom)
-      if (room?.puzzles) {
-        setPuzzles(room.puzzles)
-        setFormData(prev => ({ ...prev, puzzleId: room.puzzles.length > 0 ? room.puzzles[0]._id : '' }))
-      } else {
-        setPuzzles([])
-        setFormData(prev => ({ ...prev, puzzleId: '' }))
-      }
+    if (selectedRoom && allPuzzles) {
+      const roomPuzzles = allPuzzles.filter(p => p.roomId === selectedRoom);
+      setFormData(prev => ({ ...prev, puzzleId: roomPuzzles.length > 0 ? roomPuzzles[0]._id : '' }));
     }
-  }, [selectedRoom, rooms])
-
+  }, [selectedRoom, allPuzzles]);
+  
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      await createClue(formData)
-      alert('Clue created!')
+      await createClue({ userId, ...formData });
+      alert('Clue created!');
       setFormData({
         puzzleId: '',
         text: '',
         cost: 10,
         orderIndex: 0
-      })
+      });
     } catch (error) {
-      alert(error?.message || 'Failed to create clue')
+      alert(error?.message || 'Failed to create clue');
     }
-  }
-
-  if (!rooms) return <div>Loading rooms...</div>
-
+  };
+  
+  if (!rooms || !allPuzzles) return <div>Loading rooms and puzzles...</div>;
+  const roomPuzzles = allPuzzles.filter(p => p.roomId === selectedRoom);
+  
   return (
     <div>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Room</label>
-          <select value={selectedRoom} onChange={e => {
-            setSelectedRoom(e.target.value)
-            const room = rooms.find(r => r._id === e.target.value)
-            setPuzzles(room?.puzzles || [])
-            setFormData(prev => ({ ...prev, puzzleId: (room?.puzzles?.[0]?._id) || '' }))
-          }}>
+          <select value={selectedRoom} onChange={e => setSelectedRoom(e.target.value)}>
             {rooms.map(room => (
               <option key={room._id} value={room._id}>{room.name}</option>
             ))}
@@ -703,31 +692,39 @@ function CreateClueForm() {
         </div>
         <div className="form-group">
           <label>Puzzle</label>
-          <select value={formData.puzzleId} onChange={e => setFormData(prev => ({ ...prev, puzzleId: e.target.value }))}>
-            {puzzles.map(puzzle => (
-              <option key={puzzle._id} value={puzzle._id}>{puzzle.title}</option>
-            ))}
+          <select
+            value={formData.puzzleId}
+            onChange={e => setFormData(prev => ({ ...prev, puzzleId: e.target.value }))}
+            disabled={roomPuzzles.length === 0}
+          >
+            {roomPuzzles.length === 0 ? (
+              <option value="">No puzzles available for this room</option>
+            ) : (
+              roomPuzzles.map(puzzle => (
+                <option key={puzzle._id} value={puzzle._id}>{puzzle.title}</option>
+              ))
+            )}
           </select>
         </div>
         <div className="form-group">
           <label>Clue Text</label>
           <textarea
             value={formData.text}
-            onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+            onChange={e => setFormData({ ...formData, text: e.target.value })}
             rows={3}
             required
-          />
+          ></textarea>
         </div>
         <div className="form-group">
           <label>Cost</label>
           <input
             type="number"
             value={formData.cost}
-            onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
+            onChange={e => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
           />
         </div>
         <button type="submit" className="btn btn-primary">Create Clue</button>
       </form>
     </div>
-  )
+  );
 }

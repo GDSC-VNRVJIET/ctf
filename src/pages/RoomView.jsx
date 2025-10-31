@@ -207,7 +207,11 @@ function PuzzleView({ puzzle, userId }) {
       setMessage(result.message)
       setFlag('')
     } catch (error) {
-      setMessage(error?.message || 'Submission failed')
+      if (error?.message === 'Puzzle already solved') {
+        setMessage('You have already solved this puzzle!')
+      } else {
+        setMessage(error?.message || 'Submission failed')
+      }
     } finally {
       setLoading(false)
     }

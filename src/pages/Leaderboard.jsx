@@ -59,10 +59,11 @@ export default function Leaderboard() {
       <div className="container">
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1>Full Leaderboard</h1>
+            <h1 style={{ marginRight: '32px' }}>Full Leaderboard</h1>
             {team && (
-              <button className="btn btn-success" onClick={handleDefend}>
-                Activate Shield (30 pts)
+              <button className="btn btn-success" onClick={handleDefend} style={{ marginLeft: '32px', padding: '8px 20px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ marginRight: '10px' }}>Shield</span>
+                <span style={{ marginLeft: '10px' }}>(30 pts)</span>
               </button>
             )}
           </div>

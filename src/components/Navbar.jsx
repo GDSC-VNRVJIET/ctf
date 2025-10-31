@@ -6,7 +6,10 @@ export default function Navbar() {
 
   return (
     <div className="navbar">
-      <Link to="/" className="navbar-brand">🛡️ CTF Realm</Link>
+      <Link to="/" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <img src="/GDGC logo.png" alt="GDGC Logo" style={{ height: '32px', width: '32px', objectFit: 'contain' }} />
+        Room-Based CTF
+      </Link>
       <div className="navbar-menu">
         <Link to="/" className="nav-link">🏠 Home</Link>
         <Link to="/dashboard" className="nav-link">🎯 Challenges</Link>
