@@ -8,7 +8,7 @@ export default function Navbar() {
     <div className="navbar">
       <Link to="/" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <img src="/GDGC logo.png" alt="GDGC Logo" style={{ height: '32px', width: '32px', objectFit: 'contain' }} />
-        Room-Based CTF
+        Room-Style CTF
       </Link>
       <div className="navbar-menu">
         <Link to="/" className="nav-link">🏠 Home</Link>

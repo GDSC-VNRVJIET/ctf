@@ -196,14 +196,15 @@ function TeamsTab({ teams }) {
     }
   }
 
+  const { userId } = useAuth();
   const handleDelete = async (teamId) => {
-    if (!confirm('Delete this team permanently? This action cannot be undone!')) return
+    if (!confirm('Delete this team permanently? This action cannot be undone!')) return;
 
     try {
-      await deleteTeam({ teamId })
-      alert('Team deleted')
+      await deleteTeam({ userId, teamId });
+      alert('Team deleted');
     } catch (error) {
-      alert(error?.message || 'Failed to delete team')
+      alert(error?.message || 'Failed to delete team');
     }
   }
 
@@ -401,14 +402,15 @@ function EditRoomForm({ room, onClose }) {
     challengeInvestment: room.challengeInvestment
   })
 
+  const { userId } = useAuth();
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      await updateRoom(formData)
-      alert('Room updated!')
-      onClose()
+      await updateRoom({ userId, ...formData });
+      alert('Room updated!');
+      onClose();
     } catch (error) {
-      alert(error?.message || 'Failed to update room')
+      alert(error?.message || 'Failed to update room');
     }
   }
 
@@ -466,29 +468,44 @@ function EditPuzzleForm({ puzzle, onClose }) {
 
   const [formData, setFormData] = useState({
     puzzleId: puzzle._id,
+    roomId: puzzle.roomId || '',
     title: puzzle.title,
     type: puzzle.type,
     description: puzzle.description,
     flag: '', // Don't show existing flag for security
-    pointsReward: puzzle.pointsReward,
-    isActive: puzzle.isActive
+    pointsReward: puzzle.pointsReward
   })
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      await updatePuzzle(formData)
-      alert('Puzzle updated!')
-      onClose()
+      // Remove isActive if present
+      const { isActive, ...payload } = formData;
+      await updatePuzzle({ userId, ...payload });
+      alert('Question updated!');
+      onClose();
     } catch (error) {
-      alert(error?.message || 'Failed to update puzzle')
+      alert(error?.message || 'Failed to update question');
     }
   }
 
   return (
     <div className="card" style={{ marginTop: '16px' }}>
-      <h3>Edit Puzzle</h3>
+      <h3>Edit Question</h3>
       <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Room</label>
+          <select
+            value={formData.roomId}
+            onChange={e => setFormData({ ...formData, roomId: e.target.value })}
+            required
+          >
+            <option value="">Select a room</option>
+            {rooms && rooms.map(room => (
+              <option key={room._id} value={room._id}>{room.name}</option>
+            ))}
+          </select>
+        </div>
         <div className="form-group">
           <label>Title</label>
           <input
@@ -536,7 +553,7 @@ function EditPuzzleForm({ puzzle, onClose }) {
           />
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="submit" className="btn btn-primary">Update Puzzle</button>
+          <button type="submit" className="btn btn-primary">Update Question</button>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
         </div>
       </form>
@@ -555,14 +572,14 @@ function CreatePuzzleForm() {
     description: '',
     flag: '',
     pointsReward: 100,
-    type: 'question' // Default type
-  })
+    type: 'question'
+  });
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      await createPuzzle({ userId, ...formData })
-      alert('Puzzle created!')
+      await createPuzzle({ userId, ...formData });
+      alert('Question created!');
       setFormData({
         roomId: '',
         title: '',
@@ -570,13 +587,11 @@ function CreatePuzzleForm() {
         flag: '',
         pointsReward: 100,
         type: 'question'
-      })
+      });
     } catch (error) {
-      alert(error?.message || 'Failed to create puzzle')
+      alert(error?.message || 'Failed to create question');
     }
-  }
-
-  if (!rooms) return <div>Loading rooms...</div>
+  };
 
   return (
     <form onSubmit={handleSubmit}>
@@ -588,7 +603,7 @@ function CreatePuzzleForm() {
           required
         >
           <option value="">Select a room</option>
-          {rooms.map(room => (
+          {rooms && rooms.map(room => (
             <option key={room._id} value={room._id}>{room.name}</option>
           ))}
         </select>
@@ -628,9 +643,9 @@ function CreatePuzzleForm() {
           onChange={(e) => setFormData({ ...formData, pointsReward: parseFloat(e.target.value) })}
         />
       </div>
-      <button type="submit" className="btn btn-primary">Create Puzzle</button>
+      <button type="submit" className="btn btn-primary">Create Question</button>
     </form>
-  )
+  );
 }
 
 function CreateClueForm() {

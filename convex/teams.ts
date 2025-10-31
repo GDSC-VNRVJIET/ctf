@@ -75,7 +75,7 @@ export const createTeam = mutation({
       description: args.description,
       captainUserId: args.userId,
       capacity: args.capacity,
-      pointsBalance: 1000.0,
+      pointsBalance: 0,
       inviteCode: generateInviteCode(),
       shieldActive: false,
       createdAt: Date.now(),
