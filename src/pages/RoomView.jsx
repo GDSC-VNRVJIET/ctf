@@ -8,6 +8,7 @@ export default function RoomView() {
   const { roomId } = useParams()
   const { userId } = useAuth()
   const [selectedPuzzle, setSelectedPuzzle] = useState(null)
+  const [showIntro, setShowIntro] = useState(true)
 
   const room = useQuery(api.game.getRoom, userId && roomId ? { userId, roomId } : "skip")
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
@@ -21,6 +22,32 @@ export default function RoomView() {
       setSelectedPuzzle(room.puzzles[0])
     }
   }, [room, selectedPuzzle])
+
+  // Room intro stories
+  const getRoomIntro = (roomName) => {
+    const intros = {
+      "Lobby": {
+        title: "ENTRY POINT",
+        description: "You're outside the massive corporate building. The target is within reach. This is where it all begins.",
+        story: "Security cameras sweep the perimeter. Guards patrol the entrance. This is your first obstacle. Use your skills wisely."
+      },
+      "Server Room": {
+        title: "THE DIGITAL VAULT",
+        description: "You've breached the outer defenses. Now comes the real challenge - the server room.",
+        story: "Racks of servers hum with data. Each one holds secrets worth stealing. But the real treasure lies deeper."
+      },
+      "CEO Office": {
+        title: "THE PRIZE",
+        description: "The final target. The CEO's office contains the crown jewels of this heist.",
+        story: "Private documents, encrypted drives, classified information. Everything is here. But getting out alive is another matter."
+      }
+    }
+    return intros[roomName] || {
+      title: "UNKNOWN TERRITORY",
+      description: "You've entered an uncharted part of the target building.",
+      story: "Proceed with caution. Every step could be your last."
+    }
+  }
 
   const handleUnlockRoom = async () => {
     if (!userId) {
@@ -41,51 +68,111 @@ export default function RoomView() {
   if (!room) return <div>Room not found</div>
 
   const canAccess = !team?.currentRoomId || team.currentRoomId === roomId
+  const roomIntro = getRoomIntro(room.name)
 
-  return (
-    <div>
-      <div className="container">
-        <div className="card">
-          <h1>{room.name}</h1>
-          <p style={{ color: '#666', marginTop: '8px' }}>{room.description}</p>
-
-          {!canAccess && (
-            <div style={{ marginTop: '16px' }}>
-              <p>You need to unlock this room first.</p>
-              <button className="btn btn-primary" onClick={handleUnlockRoom}>
-                Unlock Room ({room.unlockCost} points)
+  if (showIntro && canAccess) {
+    return (
+      <div className="modal-overlay" onClick={() => setShowIntro(false)}>
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2 className="modal-title">{roomIntro.title}</h2>
+          </div>
+          <div className="modal-content">
+            <h3 style={{ color: '#8EFF8B', marginBottom: '16px' }}>{room.name}</h3>
+            <p style={{ color: '#B388FF', marginBottom: '16px', lineHeight: '1.6' }}>
+              {roomIntro.description}
+            </p>
+            <p style={{ color: '#00E5FF', marginBottom: '20px', lineHeight: '1.6', fontStyle: 'italic' }}>
+              {roomIntro.story}
+            </p>
+            <div style={{ textAlign: 'center' }}>
+              <button className="btn btn-primary" onClick={() => setShowIntro(false)}>
+                Enter Room
               </button>
             </div>
-          )}
+          </div>
         </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="room-view">
+      <div className="container">
+        <div className="card room-header">
+          <div className="room-info">
+            <h1 className="room-title">{room.name}</h1>
+            <p className="room-description">{room.description}</p>
+          </div>
+          <div className="room-actions">
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setShowIntro(true)}
+              style={{ fontSize: '10px', padding: '8px 16px' }}
+            >
+              Room Brief
+            </button>
+          </div>
+        </div>
+
+        {!canAccess && (
+          <div className="card room-locked">
+            <h3>Access Required</h3>
+            <p>You need to unlock this room first.</p>
+            <button className="btn btn-primary" onClick={handleUnlockRoom}>
+              Unlock Room ({room.unlockCost} points)
+            </button>
+          </div>
+        )}
 
         {canAccess && (
           <>
-            <div className="grid grid-2">
-              <div className="card">
-                <h2>Puzzles</h2>
-                <div style={{ marginTop: '16px' }}>
-                  {room.puzzles?.map((puzzle) => (
+            <div className="card room-progress">
+              <div className="progress-info">
+                <span className="progress-label">Room Progress:</span>
+                <span className="progress-value">
+                  {selectedPuzzle ? (room.puzzles.findIndex(p => p._id === selectedPuzzle._id) + 1) : 0} 
+                  / {room.puzzles?.length || 0}
+                </span>
+              </div>
+              <div className="progress-bar">
+                <div 
+                  className="progress-fill" 
+                  style={{ 
+                    width: `${selectedPuzzle ? ((room.puzzles.findIndex(p => p._id === selectedPuzzle._id) + 1) / (room.puzzles?.length || 1)) * 100 : 0}%` 
+                  }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="puzzles-layout">
+              <div className="card puzzles-sidebar">
+                <h3 className="sidebar-title">Room Questions</h3>
+                <div className="puzzles-list">
+                  {room.puzzles?.map((puzzle, index) => (
                     <div
                       key={puzzle._id}
-                      className="card"
-                      style={{
-                        background: selectedPuzzle?._id === puzzle._id ? '#e7f3ff' : '#f8f9fa',
-                        cursor: 'pointer',
-                        marginBottom: '8px'
-                      }}
+                      className={`puzzle-item ${selectedPuzzle?._id === puzzle._id ? 'active' : ''}`}
                       onClick={() => setSelectedPuzzle(puzzle)}
                     >
-                      <h3>{puzzle.title}</h3>
-                      <span className="badge badge-success">{puzzle.pointsReward} pts</span>
+                      <div className="puzzle-header">
+                        <span className="room-question-badge">ROOM QUESTION</span>
+                        <span className="puzzle-number">#{index + 1}</span>
+                      </div>
+                      <h4 className="puzzle-title">{puzzle.title}</h4>
+                      <div className="puzzle-meta">
+                        <span className="points-reward">{puzzle.pointsReward} pts</span>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {selectedPuzzle && (
-                <PuzzleView puzzle={selectedPuzzle} userId={userId} />
-              )}
+              <div className="puzzle-content">
+                {selectedPuzzle && (
+                  <PuzzleView puzzle={selectedPuzzle} userId={userId} />
+                )}
+              </div>
             </div>
           </>
         )}
@@ -142,55 +229,70 @@ function PuzzleView({ puzzle, userId }) {
   }
 
   return (
-    <div className="card">
-      <h2>{puzzle.title}</h2>
-      <p style={{ margin: '16px 0', whiteSpace: 'pre-wrap' }}>{puzzle.description}</p>
+    <div className="card puzzle-view">
+      <div className="puzzle-header-section">
+        <div className="puzzle-title-section">
+          <span className="room-question-badge">ROOM QUESTION</span>
+          <h2 className="puzzle-title">{puzzle.title}</h2>
+        </div>
+        <div className="puzzle-reward">
+          <span className="points-display">{puzzle.pointsReward} POINTS</span>
+        </div>
+      </div>
+      
+      <div className="puzzle-description">
+        <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{puzzle.description}</p>
+      </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="flag-submission">
         <div className="form-group">
-          <label>Submit Flag</label>
+          <label className="flag-label">FLAG SUBMISSION</label>
           <input
             type="text"
             value={flag}
             onChange={(e) => setFlag(e.target.value)}
-            placeholder="flag{...}"
+            placeholder="Enter flag{...}"
+            className="flag-input"
             required
           />
         </div>
         {message && (
-          <div className={message.includes('Correct') ? 'success' : 'error'}>
+          <div className={`submission-result ${message.includes('Correct') ? 'success' : 'error'}`}>
             {message}
           </div>
         )}
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? 'Submitting...' : 'Submit Flag'}
+        <button type="submit" className="btn btn-primary flag-submit" disabled={loading}>
+          {loading ? 'PROCESSING...' : 'SUBMIT FLAG'}
         </button>
       </form>
 
       {puzzle.clues?.length > 0 && (
-        <div style={{ marginTop: '24px' }}>
-          <h3>Clues</h3>
-          {puzzle.clues.map((clue) => {
-            const isPurchased = purchasedClues.includes(clue._id)
-            return (
-              <div key={clue._id} className="card" style={{ background: '#f8f9fa', marginTop: '8px' }}>
-                {isPurchased ? (
-                  <p>{clue.text}</p>
-                ) : (
-                  <>
-                    <p style={{ color: '#666' }}>Clue available for {clue.cost} points</p>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ marginTop: '8px' }}
-                      onClick={() => handleBuyClue(clue._id)}
-                    >
-                      Buy Clue
-                    </button>
-                  </>
-                )}
-              </div>
-            )
-          })}
+        <div className="clues-section">
+          <h3 className="clues-title">AVAILABLE CLUES</h3>
+          <div className="clues-list">
+            {puzzle.clues.map((clue) => {
+              const isPurchased = purchasedClues.includes(clue._id)
+              return (
+                <div key={clue._id} className={`clue-item ${isPurchased ? 'purchased' : 'available'}`}>
+                  {isPurchased ? (
+                    <div className="clue-content">
+                      <p>{clue.text}</p>
+                    </div>
+                  ) : (
+                    <div className="clue-purchase">
+                      <p className="clue-cost">CLUE COST: {clue.cost} POINTS</p>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => handleBuyClue(clue._id)}
+                      >
+                        PURCHASE CLUE
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

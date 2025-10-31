@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: ctf-frontend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run preview
+    envVars:
+      - key: CONVEX_URL
+        value: your-convex-url-here

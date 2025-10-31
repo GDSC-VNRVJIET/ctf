@@ -64,7 +64,7 @@ export default defineSchema({
     pointsReward: v.number(),
     isActive: v.boolean(),
     isRoomQuestion: v.optional(v.boolean()), // New field for room questions
-    skipToRoom: v.optional(v.number()), // New field for skip destination
+    skipToRoom: v.optional(v.id("rooms")), // New field for skip destination
   })
     .index("by_room", ["roomId"])
     .index("by_active", ["isActive"]),

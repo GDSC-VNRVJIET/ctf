@@ -552,3 +552,63 @@ export const awardPoints = mutation({
     return { message: `Awarded ${args.points} points to team` };
   },
 });
+
+export const skipTeamQuestion = mutation({
+  args: {
+    userId: v.id("users"),
+    teamId: v.id("teams"),
+    puzzleId: v.id("puzzles"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
+
+    // Mark the puzzle as solved for the team by inserting a correct submission
+    await ctx.db.insert("submissions", {
+      teamId: args.teamId,
+      puzzleId: args.puzzleId,
+      submittedFlag: "ADMIN_SKIP",
+      isCorrect: true,
+      submissionTime: Date.now(),
+    });
+
+    // If it's a room question, advance the team to the next room
+    const puzzle = await ctx.db.get(args.puzzleId);
+    if (puzzle?.isRoomQuestion && puzzle.skipToRoom) {
+      await ctx.db.patch(args.teamId, { currentRoomId: puzzle.skipToRoom });
+    }
+
+    await ctx.db.insert("auditLogs", {
+      userId: args.userId,
+      action: "skip_team_question",
+      detailsJson: JSON.stringify({ teamId: args.teamId, puzzleId: args.puzzleId }),
+      createdAt: Date.now(),
+    });
+
+    return { message: "Question skipped for team" };
+  },
+});
+
+export const awardTeamPoints = mutation({
+  args: {
+    userId: v.id("users"),
+    teamId: v.id("teams"),
+    points: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
+
+    const team = await ctx.db.get(args.teamId);
+    if (!team) throw new ConvexError("Team not found");
+
+    await ctx.db.patch(args.teamId, { pointsBalance: team.pointsBalance + args.points });
+
+    await ctx.db.insert("auditLogs", {
+      userId: args.userId,
+      action: "award_team_points",
+      detailsJson: JSON.stringify({ teamId: args.teamId, points: args.points }),
+      createdAt: Date.now(),
+    });
+
+    return { message: `Awarded ${args.points} points to team` };
+  },
+});

@@ -320,6 +320,7 @@ function CreateTab() {
 
 function CreateRoomForm() {
   const createRoom = useMutation(api.admin.createRoom)
+  const { userId } = useAuth();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -332,7 +333,7 @@ function CreateRoomForm() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await createRoom(formData)
+      await createRoom({ userId, ...formData })
       alert('Room created!')
       setFormData({
         name: '',
@@ -553,20 +554,22 @@ function CreatePuzzleForm() {
     title: '',
     description: '',
     flag: '',
-    pointsReward: 100
+    pointsReward: 100,
+    type: 'question' // Default type
   })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await createPuzzle(formData)
+      await createPuzzle({ userId, ...formData })
       alert('Puzzle created!')
       setFormData({
         roomId: '',
         title: '',
         description: '',
         flag: '',
-        pointsReward: 100
+        pointsReward: 100,
+        type: 'question'
       })
     } catch (error) {
       alert(error?.message || 'Failed to create puzzle')
@@ -656,9 +659,10 @@ function CreateClueForm() {
       const room = rooms.find(r => r._id === selectedRoom)
       if (room?.puzzles) {
         setPuzzles(room.puzzles)
-        if (room.puzzles.length > 0) {
-          setFormData(prev => ({ ...prev, puzzleId: room.puzzles[0]._id }))
-        }
+        setFormData(prev => ({ ...prev, puzzleId: room.puzzles.length > 0 ? room.puzzles[0]._id : '' }))
+      } else {
+        setPuzzles([])
+        setFormData(prev => ({ ...prev, puzzleId: '' }))
       }
     }
   }, [selectedRoom, rooms])
@@ -682,45 +686,48 @@ function CreateClueForm() {
   if (!rooms) return <div>Loading rooms...</div>
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="form-group">
-        <label>Room</label>
-        <select value={selectedRoom} onChange={(e) => setSelectedRoom(e.target.value)}>
-          {rooms.map(room => (
-            <option key={room._id} value={room._id}>{room.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Puzzle</label>
-        <select
-          value={formData.puzzleId}
-          onChange={(e) => setFormData({ ...formData, puzzleId: e.target.value })}
-          required
-        >
-          {puzzles.map(puzzle => (
-            <option key={puzzle._id} value={puzzle._id}>{puzzle.title}</option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Clue Text</label>
-        <textarea
-          value={formData.text}
-          onChange={(e) => setFormData({ ...formData, text: e.target.value })}
-          rows={3}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label>Cost</label>
-        <input
-          type="number"
-          value={formData.cost}
-          onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
-        />
-      </div>
-      <button type="submit" className="btn btn-primary">Create Clue</button>
-    </form>
+    <div>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Room</label>
+          <select value={selectedRoom} onChange={e => {
+            setSelectedRoom(e.target.value)
+            const room = rooms.find(r => r._id === e.target.value)
+            setPuzzles(room?.puzzles || [])
+            setFormData(prev => ({ ...prev, puzzleId: (room?.puzzles?.[0]?._id) || '' }))
+          }}>
+            {rooms.map(room => (
+              <option key={room._id} value={room._id}>{room.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Puzzle</label>
+          <select value={formData.puzzleId} onChange={e => setFormData(prev => ({ ...prev, puzzleId: e.target.value }))}>
+            {puzzles.map(puzzle => (
+              <option key={puzzle._id} value={puzzle._id}>{puzzle.title}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Clue Text</label>
+          <textarea
+            value={formData.text}
+            onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+            rows={3}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Cost</label>
+          <input
+            type="number"
+            value={formData.cost}
+            onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
+          />
+        </div>
+        <button type="submit" className="btn btn-primary">Create Clue</button>
+      </form>
+    </div>
   )
 }
