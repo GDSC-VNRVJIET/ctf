@@ -3,6 +3,7 @@ import { useQuery, useMutation } from 'convex/react';
 import toast from 'react-hot-toast';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils/errorHandler';
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('rooms');
@@ -174,16 +175,15 @@ function TeamsTab({ teams }) {
   const disableTeam = useMutation(api.admin.disableTeam);
   const deleteTeam = useMutation(api.admin.deleteTeamAdmin);
 
-  const handleRefund = async (teamId) => {
-    const amount = prompt('Enter refund amount:');
+  const handleAddPoints = async (teamId) => {
+    const amount = prompt('Enter points amount to add:');
     if (!amount) return;
 
     try {
-      await refundPoints({ teamId, amount: parseFloat(amount) });
-      toast.success('Points refunded');
+      await refundPoints({ userId, teamId, amount: parseFloat(amount) });
+      toast.success('Points added successfully');
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to refund points';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to add points'));
     }
   };
 
@@ -194,8 +194,7 @@ function TeamsTab({ teams }) {
       await disableTeam({ teamId });
       toast.success('Team disabled');
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to disable team';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to disable team'));
     }
   };
 
@@ -207,8 +206,7 @@ function TeamsTab({ teams }) {
       await deleteTeam({ userId, teamId });
       toast.success('Team deleted');
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to delete team';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to delete team'));
     }
   };
 
@@ -240,9 +238,9 @@ function TeamsTab({ teams }) {
                 <button
                   className="btn btn-secondary"
                   style={{ padding: '4px 8px', fontSize: '12px', marginRight: '4px' }}
-                  onClick={() => handleRefund(team._id)}
+                  onClick={() => handleAddPoints(team._id)}
                 >
-                  Refund
+                  Add Points
                 </button>
                 <button
                   className="btn btn-warning"
@@ -331,6 +329,7 @@ function CreateRoomForm() {
     name: '',
     orderIndex: 1,
     description: '',
+    brief: '',
     isChallenge: false,
     unlockCost: 0
   });
@@ -344,12 +343,12 @@ function CreateRoomForm() {
         name: '',
         orderIndex: 1,
         description: '',
+        brief: '',
         isChallenge: false,
         unlockCost: 0
       });
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to create room';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to create room'));
     }
   };
 
@@ -382,6 +381,15 @@ function CreateRoomForm() {
         />
       </div>
       <div className="form-group">
+        <label>Brief/Story (shown when entering room)</label>
+        <textarea
+          value={formData.brief}
+          onChange={(e) => setFormData({ ...formData, brief: e.target.value })}
+          rows={4}
+          placeholder="Enter the story or briefing text that will be shown to players when they enter this room..."
+        />
+      </div>
+      <div className="form-group">
         <label>Unlock Cost</label>
         <input
           type="number"
@@ -402,6 +410,7 @@ function EditRoomForm({ room, onClose }) {
     name: room.name,
     orderIndex: room.orderIndex,
     description: room.description,
+    brief: room.brief || '',
     isChallenge: room.isChallenge,
     unlockCost: room.unlockCost,
     challengeInvestment: room.challengeInvestment
@@ -415,8 +424,7 @@ function EditRoomForm({ room, onClose }) {
       toast.success('Room updated!');
       onClose();
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to update room';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to update room'));
     }
   };
 
@@ -448,6 +456,15 @@ function EditRoomForm({ room, onClose }) {
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             rows={3}
+          />
+        </div>
+        <div className="form-group">
+          <label>Brief/Story (shown when entering room)</label>
+          <textarea
+            value={formData.brief}
+            onChange={(e) => setFormData({ ...formData, brief: e.target.value })}
+            rows={4}
+            placeholder="Enter the story or briefing text that will be shown to players when they enter this room..."
           />
         </div>
         <div className="form-group">
@@ -491,8 +508,7 @@ function EditPuzzleForm({ puzzle, onClose }) {
       toast.success('Question updated!');
       onClose();
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to update question';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to update question'));
     }
   }
 
@@ -596,8 +612,7 @@ function CreatePuzzleForm() {
         type: 'question'
       });
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to create question';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to create question'));
     }
   };
 
@@ -661,14 +676,23 @@ function CreateClueForm() {
   const rooms = useQuery(api.admin.getAllRooms, { userId });
   const allPuzzles = useQuery(api.admin.getAllPuzzles, { userId });
   const createClue = useMutation(api.admin.createClue);
+  const updateClue = useMutation(api.admin.updateClue);
+  const deleteClue = useMutation(api.admin.deleteClue);
   
   const [selectedRoom, setSelectedRoom] = useState('');
+  const [editingClueId, setEditingClueId] = useState(null);
   const [formData, setFormData] = useState({
     puzzleId: '',
     text: '',
     cost: 10,
     orderIndex: 0
   });
+  
+  // Get clues for the selected puzzle
+  const clues = useQuery(
+    api.admin.getCluesByPuzzle,
+    formData.puzzleId ? { userId, puzzleId: formData.puzzleId } : "skip"
+  );
   
   useEffect(() => {
     if (rooms && rooms.length > 0 && !selectedRoom) {
@@ -686,17 +710,46 @@ function CreateClueForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await createClue({ userId, ...formData });
-      toast.success('Clue created!');
+      if (editingClueId) {
+        await updateClue({ userId, clueId: editingClueId, text: formData.text, cost: formData.cost, orderIndex: formData.orderIndex });
+        toast.success('Clue updated!');
+        setEditingClueId(null);
+      } else {
+        await createClue({ userId, ...formData });
+        toast.success('Clue created!');
+      }
       setFormData({
-        puzzleId: '',
+        puzzleId: formData.puzzleId,
         text: '',
         cost: 10,
         orderIndex: 0
       });
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to create clue';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, editingClueId ? 'Failed to update clue' : 'Failed to create clue'));
+    }
+  };
+
+  const handleEdit = (clue) => {
+    setEditingClueId(clue._id);
+    setFormData({
+      puzzleId: formData.puzzleId,
+      text: clue.text,
+      cost: clue.cost,
+      orderIndex: clue.orderIndex
+    });
+  };
+
+  const handleDelete = async (clueId) => {
+    if (!confirm('Delete this clue?')) return;
+    try {
+      await deleteClue({ userId, clueId });
+      toast.success('Clue deleted!');
+      if (editingClueId === clueId) {
+        setEditingClueId(null);
+        setFormData(prev => ({ ...prev, text: '', cost: 10, orderIndex: 0 }));
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to delete clue'));
     }
   };
 
@@ -747,8 +800,73 @@ function CreateClueForm() {
             onChange={e => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
           />
         </div>
-        <button type="submit" className="btn btn-primary">Create Clue</button>
+        <div className="form-group">
+          <label>Order Index</label>
+          <input
+            type="number"
+            value={formData.orderIndex}
+            onChange={e => setFormData({ ...formData, orderIndex: parseInt(e.target.value) })}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button type="submit" className="btn btn-primary">
+            {editingClueId ? 'Update Clue' : 'Create Clue'}
+          </button>
+          {editingClueId && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setEditingClueId(null);
+                setFormData(prev => ({ ...prev, text: '', cost: 10, orderIndex: 0 }));
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
+
+      {clues && clues.length > 0 && (
+        <div className="card" style={{ marginTop: '24px' }}>
+          <h3>Clues for this Question ({clues.length}/3)</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Text</th>
+                <th>Cost</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clues.map(clue => (
+                <tr key={clue._id} style={{ backgroundColor: editingClueId === clue._id ? '#2d3a4f' : 'transparent' }}>
+                  <td>#{clue.orderIndex}</td>
+                  <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clue.text}</td>
+                  <td>{clue.cost} pts</td>
+                  <td>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => handleEdit(clue)}
+                      style={{ marginRight: '8px', backgroundColor: '#4a7bde' }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => handleDelete(clue._id)}
+                      style={{ backgroundColor: '#e74c3c' }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

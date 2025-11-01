@@ -46,6 +46,11 @@ export const createTeam = mutation({
     capacity: v.number(),
   },
   handler: async (ctx, args) => {
+    // Validate capacity
+    if (args.capacity < 2 || args.capacity > 5) {
+      throw new ConvexError("Team capacity must be between 2 and 5");
+    }
+
     // Rate limiting
     await checkRateLimit(ctx, args.userId, "create_team", 3, 60);
 

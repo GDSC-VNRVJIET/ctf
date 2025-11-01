@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation } from 'convex/react';
 import toast from 'react-hot-toast';
 import { api } from '../../convex/_generated/api';
+import { getErrorMessage } from '../utils/errorHandler';
 
 export default function TeamManagement() {
   const { user, userId } = useAuth();
@@ -34,8 +35,7 @@ export default function TeamManagement() {
       await acceptRequest({ userId, teamId: team._id, requestId });
       toast.success('Request accepted!');
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to accept request';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to accept request'));
     }
   };
 
@@ -46,8 +46,7 @@ export default function TeamManagement() {
       await rejectRequest({ userId, teamId: team._id, requestId });
       toast.success('Request rejected!');
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to reject request';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to reject request'));
     }
   };
 
@@ -58,8 +57,7 @@ export default function TeamManagement() {
       await removeMember({ userId, teamId: team._id, targetUserId });
       toast.success('Member removed successfully!');
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to remove member';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to remove member'));
     }
   };
 
@@ -71,8 +69,7 @@ export default function TeamManagement() {
       toast.success('Team deleted successfully!');
       window.location.reload();
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to delete team';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to delete team'));
     }
   };
 
@@ -227,8 +224,7 @@ function CreateTeamModal({ onClose }) {
       toast.success('Team created successfully!');
       onClose();
     } catch (err) {
-      const errorMessage = err?.message?.split('\n')[0] || 'Failed to create team';
-      setError(errorMessage);
+      setError(getErrorMessage(err, 'Failed to create team'));
     } finally {
       setLoading(false);
     }
@@ -261,12 +257,13 @@ function CreateTeamModal({ onClose }) {
           </div>
           <div className="form-group">
             <label>Capacity</label>
+            <p style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>Minimum: 2 members, Maximum: 5 members</p>
             <input
               type="number"
               value={capacity}
               onChange={(e) => setCapacity(parseInt(e.target.value))}
-              min={1}
-              max={10}
+              min={2}
+              max={5}
               required
             />
           </div>
@@ -310,8 +307,7 @@ function JoinTeamModal({ onClose }) {
       toast.success('Join request sent successfully! Wait for captain approval.');
       onClose();
     } catch (err) {
-      const errorMessage = err?.message?.split('\n')[0] || 'Failed to send join request';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(err, 'Failed to send join request'));
     } finally {
       setLoading(false);
     }

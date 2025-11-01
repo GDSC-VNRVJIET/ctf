@@ -5,5 +5,5 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm run preview
     envVars:
-      - key: CONVEX_URL
-        value: your-convex-url-here
+      - key: VITE_CONVEX_URL
+        value: https://canny-alligator-951.convex.cloud

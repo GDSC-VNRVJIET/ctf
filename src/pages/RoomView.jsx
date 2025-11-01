@@ -4,6 +4,7 @@ import { useQuery, useMutation } from 'convex/react';
 import toast from 'react-hot-toast';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils/errorHandler';
 
 export default function RoomView() {
   const { roomId } = useParams();
@@ -24,9 +25,9 @@ export default function RoomView() {
     }
   }, [room, selectedPuzzle]);
 
-  // Room intro stories
-  const getRoomIntro = (roomName) => {
-    const intros = {
+  // Get room intro from database brief or fallback to default
+  const getRoomIntro = (room) => {
+    const defaultIntros = {
       Lobby: {
         title: 'ENTRY POINT',
         description:
@@ -49,7 +50,18 @@ export default function RoomView() {
           'Private documents, encrypted drives, classified information. Everything is here. But getting out alive is another matter.',
       },
     };
-    return intros[roomName] || {
+    
+    // If room has a custom brief, use it
+    if (room?.brief) {
+      return {
+        title: room.name,
+        description: room.description || 'Enter the room',
+        story: room.brief,
+      };
+    }
+    
+    // Otherwise fall back to defaults
+    return defaultIntros[room?.name] || {
       title: 'UNKNOWN TERRITORY',
       description: "You've entered an uncharted part of the target building.",
       story: 'Proceed with caution. Every step could be your last.',
@@ -66,8 +78,7 @@ export default function RoomView() {
       await unlockRoom({ userId, roomId });
       toast.success('Room unlocked!');
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to unlock room';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to unlock room'));
     }
   };
 
@@ -76,7 +87,7 @@ export default function RoomView() {
   if (!room) return <div>Room not found</div>;
 
   const canAccess = !team?.currentRoomId || team.currentRoomId === roomId;
-  const roomIntro = getRoomIntro(room.name);
+  const roomIntro = getRoomIntro(room);
 
   if (showIntro && canAccess) {
     return (
@@ -218,8 +229,7 @@ function PuzzleView({ puzzle, userId }) {
       toast.success(result.message);
       setFlag('');
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Submission failed';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Submission failed'));
     } finally {
       setLoading(false);
     }
@@ -236,8 +246,7 @@ function PuzzleView({ puzzle, userId }) {
       toast.success(result.message || 'Clue purchased!');
       setPurchasedClues([...purchasedClues, clueId]);
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to buy clue';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to buy clue'));
     }
   };
 

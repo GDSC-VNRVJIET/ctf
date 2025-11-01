@@ -26,6 +26,7 @@ export const createRoom = mutation({
     name: v.string(),
     orderIndex: v.number(),
     description: v.string(),
+    brief: v.optional(v.string()),
     isChallenge: v.boolean(),
     unlockCost: v.number(),
     challengeInvestment: v.optional(v.number()),
@@ -37,6 +38,7 @@ export const createRoom = mutation({
       name: args.name,
       orderIndex: args.orderIndex,
       description: args.description,
+      brief: args.brief,
       isChallenge: args.isChallenge,
       unlockCost: args.unlockCost,
       challengeInvestment: args.challengeInvestment,
@@ -62,6 +64,7 @@ export const updateRoom = mutation({
     name: v.string(),
     orderIndex: v.number(),
     description: v.string(),
+    brief: v.optional(v.string()),
     isChallenge: v.boolean(),
     unlockCost: v.number(),
     challengeInvestment: v.optional(v.number()),
@@ -78,6 +81,7 @@ export const updateRoom = mutation({
       name: args.name,
       orderIndex: args.orderIndex,
       description: args.description,
+      brief: args.brief,
       isChallenge: args.isChallenge,
       unlockCost: args.unlockCost,
       challengeInvestment: args.challengeInvestment,
@@ -234,6 +238,16 @@ export const createClue = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args.userId);
 
+    // Check if puzzle already has 3 clues
+    const clueCount = await ctx.db
+      .query("clues")
+      .withIndex("by_puzzle", (q) => q.eq("puzzleId", args.puzzleId))
+      .collect();
+
+    if (clueCount.length >= 3) {
+      throw new ConvexError("Maximum 3 clues per question allowed");
+    }
+
     const clueId = await ctx.db.insert("clues", {
       puzzleId: args.puzzleId,
       text: args.text,
@@ -250,6 +264,65 @@ export const createClue = mutation({
     });
 
     return { clueId, message: "Clue created" };
+  },
+});
+
+export const updateClue = mutation({
+  args: {
+    userId: v.id("users"),
+    clueId: v.id("clues"),
+    text: v.string(),
+    cost: v.number(),
+    orderIndex: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
+
+    const clue = await ctx.db.get(args.clueId);
+    if (!clue) {
+      throw new ConvexError("Clue not found");
+    }
+
+    await ctx.db.patch(args.clueId, {
+      text: args.text,
+      cost: args.cost,
+      orderIndex: args.orderIndex,
+    });
+
+    await ctx.db.insert("auditLogs", {
+      userId: args.userId,
+      action: "update_clue",
+      detailsJson: JSON.stringify({ clueId: args.clueId }),
+      createdAt: Date.now(),
+    });
+
+    return { message: "Clue updated" };
+  },
+});
+
+export const deleteClue = mutation({
+  args: {
+    userId: v.id("users"),
+    clueId: v.id("clues"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
+
+    const clue = await ctx.db.get(args.clueId);
+    if (!clue) {
+      throw new ConvexError("Clue not found");
+    }
+
+    await ctx.db.delete(args.clueId);
+
+    await ctx.db.insert("auditLogs", {
+      userId: args.userId,
+      action: "delete_clue",
+      detailsJson: JSON.stringify({ clueId: args.clueId }),
+      createdAt: Date.now(),
+    });
+
+    return { message: "Clue deleted" };
   },
 });
 
@@ -458,6 +531,23 @@ export const getAllPuzzles = query({
     await requireAdmin(ctx, args.userId);
 
     return await ctx.db.query("puzzles").collect();
+  },
+});
+
+export const getCluesByPuzzle = query({
+  args: {
+    userId: v.id("users"),
+    puzzleId: v.id("puzzles"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
+
+    const clues = await ctx.db
+      .query("clues")
+      .withIndex("by_puzzle", (q) => q.eq("puzzleId", args.puzzleId))
+      .collect();
+
+    return clues.sort((a, b) => a.orderIndex - b.orderIndex);
   },
 });
 

@@ -4,6 +4,7 @@ import { useMutation, useQuery } from 'convex/react'
 import toast from 'react-hot-toast'
 import { api } from '../../convex/_generated/api'
 import { useAuth } from '../context/AuthContext'
+import { getErrorMessage } from '../utils/errorHandler'
 
 export default function Onboarding() {
   const navigate = useNavigate()
@@ -31,8 +32,7 @@ export default function Onboarding() {
       toast.success('Team created successfully!');
       navigate('/rules');
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to create team';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to create team'));
     }
   }
 
@@ -51,8 +51,7 @@ export default function Onboarding() {
       toast.success('Successfully requested to join team!');
       navigate('/rules');
     } catch (error) {
-      const errorMessage = error?.message?.split('\n')[0] || 'Failed to join team';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'Failed to join team'));
     }
   }
 
@@ -95,13 +94,14 @@ export default function Onboarding() {
             </div>
             <div className="form-group">
               <label>Team Capacity</label>
+              <p style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>Minimum: 2 members, Maximum: 5 members</p>
               <input
                 type="number"
                 min="2"
-                max="10"
+                max="5"
                 value={formData.teamCapacity}
                 onChange={(e) => setFormData({ ...formData, teamCapacity: e.target.value })}
-                placeholder="Enter team capacity (2-10)"
+                placeholder="Enter team capacity (2-5)"
                 required
               />
             </div>

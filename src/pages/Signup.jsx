@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
+import { getErrorMessage } from '../utils/errorHandler'
 
 export default function Signup() {
   const [email, setEmail] = useState('')
@@ -18,12 +20,14 @@ export default function Signup() {
 
     try {
       await signup(email, password, name)
+      toast.success('Account created! Redirecting...')
       // User is automatically logged in, redirect to dashboard
       navigate('/dashboard')
     } catch (err) {
       // Handle Convex errors
-      const errorMessage = err?.message || err?.data?.message || 'Signup failed'
+      const errorMessage = getErrorMessage(err, 'Signup failed')
       setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

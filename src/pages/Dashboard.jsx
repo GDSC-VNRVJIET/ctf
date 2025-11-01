@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useQuery, useMutation } from 'convex/react'
+import toast from 'react-hot-toast'
 import { api } from '../../convex/_generated/api'
 
 export default function Dashboard() {
@@ -19,14 +20,19 @@ export default function Dashboard() {
 
     try {
       await leaveTeam({ userId })
-      alert('Left team successfully!')
+      toast.success('Left team successfully!')
       window.location.reload()
     } catch (error) {
-      alert(error?.message || 'Failed to leave team')
+      toast.error(error?.message || 'Failed to leave team')
     }
   }
 
   if (loading) return <div className="loading">Loading...</div>
+
+  // Determine current room index
+  const currentRoomIndex = rooms && team?.currentRoomId 
+    ? rooms.findIndex(r => r._id === team.currentRoomId) 
+    : -1
 
   return (
     <div>
@@ -78,31 +84,110 @@ export default function Dashboard() {
             </div>
 
             <div className="card">
-              <h2>Rooms</h2>
-              <div className="grid grid-2" style={{ marginTop: '16px' }}>
-                {rooms.map((room) => (
-                  <div key={room._id} className="card" style={{ background: '#f8f9fa' }}>
-                    <h3>{room.name}</h3>
-                    <p style={{ margin: '8px 0', color: '#666' }}>{room.description}</p>
-                    <div style={{ marginTop: '12px' }}>
-                      <span className="badge badge-info">
-                        Room {room.orderIndex}
-                      </span>
-                      {room.unlockCost > 0 && (
-                        <span className="badge badge-warning" style={{ marginLeft: '8px' }}>
-                          Cost: {room.unlockCost} pts
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      className="btn btn-primary"
-                      style={{ marginTop: '12px', width: '100%' }}
-                      onClick={() => navigate(`/room/${room._id}`)}
+              <h2>Mission Rooms</h2>
+              <div style={{ marginTop: '24px' }}>
+                {rooms.map((room, index) => {
+                  const isAccessible = currentRoomIndex >= index - 1;
+                  const isUnlocked = currentRoomIndex >= index;
+                  const isNext = index === currentRoomIndex + 1;
+                  
+                  return (
+                    <div
+                      key={room._id}
+                      style={{
+                        marginBottom: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '20px'
+                      }}
                     >
-                      Enter Room
-                    </button>
-                  </div>
-                ))}
+                      {/* Room Icon/Number */}
+                      <div
+                        style={{
+                          width: '80px',
+                          height: '80px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '32px',
+                          fontWeight: 'bold',
+                          backgroundColor: isUnlocked ? '#0ff' : isNext ? '#ff00ff' : '#333',
+                          color: isUnlocked ? '#000' : isNext ? '#000' : '#666',
+                          border: `3px solid ${isUnlocked ? '#0ff' : isNext ? '#ff00ff' : '#666'}`,
+                          textShadow: isUnlocked || isNext ? '0 0 10px rgba(0,255,255,0.5)' : 'none'
+                        }}
+                      >
+                        {index + 1}
+                      </div>
+
+                      {/* Room Info */}
+                      <div
+                        style={{
+                          flex: 1,
+                          cursor: isAccessible ? 'pointer' : 'default',
+                          opacity: isAccessible ? 1 : 0.5
+                        }}
+                        onClick={() => isAccessible && navigate(`/room/${room._id}`)}
+                      >
+                        <div
+                          style={{
+                            padding: '16px',
+                            borderLeft: `4px solid ${isUnlocked ? '#0ff' : isNext ? '#ff00ff' : '#666'}`,
+                            background: 'rgba(0,255,255,0.05)'
+                          }}
+                        >
+                          {isUnlocked ? (
+                            <>
+                              <h3 style={{ margin: '0 0 8px 0', color: '#0ff', textShadow: '0 0 10px rgba(0,255,255,0.5)' }}>
+                                {room.name}
+                              </h3>
+                              <p style={{ margin: '4px 0', color: '#fff' }}>
+                                {room.description}
+                              </p>
+                            </>
+                          ) : isNext ? (
+                            <>
+                              <h3 style={{ margin: '0 0 8px 0', color: '#ff00ff', textShadow: '0 0 10px rgba(255,0,255,0.5)' }}>
+                                NEXT MISSION
+                              </h3>
+                              <p style={{ margin: '4px 0', color: '#aaa' }}>
+                                Unlock Cost: <span style={{ color: '#ffff00', fontWeight: 'bold' }}>{room.unlockCost} pts</span>
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <h3 style={{ margin: '0 0 8px 0', color: '#888' }}>
+                                ??? MYSTERY ROOM ???
+                              </h3>
+                              <p style={{ margin: '4px 0', color: '#666' }}>
+                                Complete previous rooms to unlock...
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Progress Indicator */}
+                      <div
+                        style={{
+                          width: '60px',
+                          height: '60px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '20px',
+                          backgroundColor: isUnlocked ? 'rgba(0,255,0,0.2)' : isNext ? 'rgba(255,0,255,0.2)' : 'rgba(100,100,100,0.2)',
+                          border: `2px solid ${isUnlocked ? '#0f0' : isNext ? '#f0f' : '#666'}`,
+                          color: isUnlocked ? '#0f0' : isNext ? '#f0f' : '#666'
+                        }}
+                      >
+                        {isUnlocked ? '✓' : isNext ? '→' : '?'}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </>

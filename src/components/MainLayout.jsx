@@ -1,4 +1,5 @@
 import { useQuery, useMutation } from 'convex/react'
+import toast from 'react-hot-toast'
 import { api } from '../../convex/_generated/api'
 import { useAuth } from '../context/AuthContext'
 import Navbar from './Navbar'
@@ -14,7 +15,7 @@ function LeaderboardSidebar() {
 
   const handleAttack = async (targetTeamId) => {
     if (!userId) {
-      alert('Please log in first')
+      toast.error('Please log in first')
       return
     }
 
@@ -26,15 +27,16 @@ function LeaderboardSidebar() {
         actionType: 'attack',
         targetTeamId
       })
-      alert('Attack launched!')
+      toast.success('Attack launched!')
     } catch (error) {
-      alert(error?.message || 'Attack failed')
+      const errorMessage = error?.data || error?.message || 'Attack failed'
+      toast.error(errorMessage)
     }
   }
 
   const handleDefend = async () => {
     if (!userId) {
-      alert('Please log in first')
+      toast.error('Please log in first')
       return
     }
 
@@ -45,9 +47,10 @@ function LeaderboardSidebar() {
         userId,
         actionType: 'defend'
       })
-      alert('Shield activated!')
+      toast.success('Shield activated!')
     } catch (error) {
-      alert(error?.message || 'Failed to activate shield')
+      const errorMessage = error?.data || error?.message || 'Failed to activate shield'
+      toast.error(errorMessage)
     }
   }
 

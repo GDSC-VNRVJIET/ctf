@@ -1,8 +1,25 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, userId } = useAuth();
+  const navigate = useNavigate();
+  
+  const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip");
+
+  // If user is admin, redirect to admin panel
+  if (user && user.role === 'admin') {
+    navigate('/admin', { replace: true });
+    return null;
+  }
+
+  // If user has a team, redirect to dashboard
+  if (user && team !== undefined && team !== null) {
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
 
   return (
     <div className="home-hero-fullscreen">

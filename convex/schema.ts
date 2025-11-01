@@ -11,7 +11,10 @@ export default defineSchema({
     isAdmin: v.optional(v.boolean()), // Additional admin flag
     createdAt: v.number(),
   })
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .searchIndex("search_email", {
+      searchField: "email",
+    }),
 
   teams: defineTable({
     name: v.string(),
@@ -46,6 +49,7 @@ export default defineSchema({
     name: v.string(),
     orderIndex: v.number(),
     description: v.string(),
+    brief: v.optional(v.string()), // Story/briefing text shown when entering room
     isActive: v.boolean(),
     isChallenge: v.boolean(),
     unlockCost: v.number(),

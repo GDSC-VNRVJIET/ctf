@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from 'convex/react'
+import toast from 'react-hot-toast'
 import { api } from '../../convex/_generated/api'
 import { useAuth } from '../context/AuthContext'
+import { getErrorMessage } from '../utils/errorHandler'
 
 export default function Shop() {
   const { userId } = useAuth()
@@ -13,15 +15,15 @@ export default function Shop() {
 
   const handleBuyPerk = async (perkId) => {
     if (!userId) {
-      alert('Please log in first')
+      toast.error('Please log in first')
       return
     }
 
     try {
       const result = await buyPerk({ userId, perkId })
-      alert(result.message || 'Perk purchased successfully!')
+      toast.success(result.message || 'Perk purchased successfully!')
     } catch (error) {
-      alert(error?.message || 'Failed to purchase perk')
+      toast.error(getErrorMessage(error, 'Failed to purchase perk'))
     }
   }
 
