@@ -87,9 +87,9 @@ export default function Dashboard() {
               <h2>Mission Rooms</h2>
               <div style={{ marginTop: '24px' }}>
                 {rooms.map((room, index) => {
-                  const isAccessible = currentRoomIndex >= index - 1;
                   const isUnlocked = currentRoomIndex >= index;
                   const isNext = index === currentRoomIndex + 1;
+                  const isAccessible = true; // All rooms are accessible without completion requirement
                   
                   return (
                     <div
@@ -140,7 +140,7 @@ export default function Dashboard() {
                           {isUnlocked ? (
                             <>
                               <h3 style={{ margin: '0 0 8px 0', color: '#0ff', textShadow: '0 0 10px rgba(0,255,255,0.5)' }}>
-                                {room.name}
+                                ✓ {room.name}
                               </h3>
                               <p style={{ margin: '4px 0', color: '#fff' }}>
                                 {room.description}
@@ -149,7 +149,7 @@ export default function Dashboard() {
                           ) : isNext ? (
                             <>
                               <h3 style={{ margin: '0 0 8px 0', color: '#ff00ff', textShadow: '0 0 10px rgba(255,0,255,0.5)' }}>
-                                NEXT MISSION
+                                → {room.name}
                               </h3>
                               <p style={{ margin: '4px 0', color: '#aaa' }}>
                                 Unlock Cost: <span style={{ color: '#ffff00', fontWeight: 'bold' }}>{room.unlockCost} pts</span>
@@ -161,7 +161,7 @@ export default function Dashboard() {
                                 ??? MYSTERY ROOM ???
                               </h3>
                               <p style={{ margin: '4px 0', color: '#666' }}>
-                                Complete previous rooms to unlock...
+                                Explore other rooms first...
                               </p>
                             </>
                           )}
