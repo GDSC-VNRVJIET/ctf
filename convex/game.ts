@@ -742,3 +742,46 @@ export const submitRulesFlag = mutation({
     }
   },
 });
+
+// Migration helper: Initialize highestRoomId for existing teams
+export const initializeHighestRoomIds = mutation({
+  args: {},
+  handler: async (ctx, args) => {
+    const teams = await ctx.db.query("teams").collect();
+    let updatedCount = 0;
+
+    for (const team of teams) {
+      // Only update if highestRoomId is not set but team has currentRoomId
+      if (!team.highestRoomId) {
+        let highestRoomId = null;
+
+        if (team.currentRoomId) {
+          // Use current room as the highest
+          highestRoomId = team.currentRoomId;
+        } else {
+          // Get the first room for teams that haven't started
+          const firstRoom = await ctx.db
+            .query("rooms")
+            .filter((q: any) => q.eq(q.field("orderIndex"), 1))
+            .first();
+          if (firstRoom) {
+            highestRoomId = firstRoom._id;
+          }
+        }
+
+        if (highestRoomId) {
+          await ctx.db.patch(team._id, {
+            highestRoomId,
+          });
+          updatedCount++;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: `Initialized highestRoomId for ${updatedCount} teams`,
+      updatedCount,
+    };
+  },
+});

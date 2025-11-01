@@ -709,13 +709,28 @@ function CreateClueForm() {
   
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validation
+    if (!formData.puzzleId) {
+      toast.error('Please select a puzzle');
+      return;
+    }
+    if (!formData.text.trim()) {
+      toast.error('Please enter clue text');
+      return;
+    }
+    if (formData.cost < 0) {
+      toast.error('Cost cannot be negative');
+      return;
+    }
+    
     try {
       if (editingClueId) {
         await updateClue({ userId, clueId: editingClueId, text: formData.text, cost: formData.cost, orderIndex: formData.orderIndex });
         toast.success('Clue updated!');
         setEditingClueId(null);
       } else {
-        await createClue({ userId, ...formData });
+        await createClue({ userId, puzzleId: formData.puzzleId, text: formData.text, cost: formData.cost, orderIndex: formData.orderIndex });
         toast.success('Clue created!');
       }
       setFormData({
@@ -797,7 +812,9 @@ function CreateClueForm() {
           <input
             type="number"
             value={formData.cost}
-            onChange={e => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
+            onChange={e => setFormData({ ...formData, cost: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+            min="0"
+            required
           />
         </div>
         <div className="form-group">
@@ -805,7 +822,9 @@ function CreateClueForm() {
           <input
             type="number"
             value={formData.orderIndex}
-            onChange={e => setFormData({ ...formData, orderIndex: parseInt(e.target.value) })}
+            onChange={e => setFormData({ ...formData, orderIndex: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+            min="0"
+            required
           />
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
