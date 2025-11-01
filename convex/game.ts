@@ -95,17 +95,8 @@ export const getRoom = query({
       throw new ConvexError("Room not found");
     }
 
-    // Check if team has unlocked this room
-    if (team.currentRoomId) {
-      const currentRoom = await ctx.db.get(team.currentRoomId);
-      if (currentRoom && "orderIndex" in currentRoom && room.orderIndex > currentRoom.orderIndex) {
-        throw new ConvexError("Room not unlocked yet");
-      }
-    } else {
-      if (room.orderIndex > 1) {
-        throw new ConvexError("Room not unlocked yet");
-      }
-    }
+    // No room unlock requirement - all rooms are accessible
+    // Users can explore any room they want
 
     // Get puzzles for this room
     const puzzles = await ctx.db
@@ -239,19 +230,10 @@ export const submitFlag = mutation({
       throw new ConvexError("Puzzle not found or inactive");
     }
 
-    // Check if team has unlocked this puzzle's room
+    // Check if room exists (but don't check if unlocked - all rooms are accessible)
     const room = await ctx.db.get(puzzle.roomId);
     if (!room) {
       throw new ConvexError("Room not found");
-    }
-
-    if (team.currentRoomId) {
-      const currentRoom = await ctx.db.get(team.currentRoomId);
-      if (currentRoom && "orderIndex" in currentRoom && room.orderIndex > currentRoom.orderIndex) {
-        throw new ConvexError("Room not unlocked yet");
-      }
-    } else if (room.orderIndex > 1) {
-      throw new ConvexError("Room not unlocked yet");
     }
 
     // Validate flag format
