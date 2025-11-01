@@ -151,6 +151,17 @@ export const getLeaderboard = query({
           if (room) roomIndex = room.orderIndex;
         }
 
+        // Get highest room index for ranking
+        let highestRoomIndex = 0;
+        let highestRoomName = "Not Started";
+        if (team.highestRoomId) {
+          const highestRoom = await ctx.db.get(team.highestRoomId);
+          if (highestRoom) {
+            highestRoomIndex = highestRoom.orderIndex;
+            highestRoomName = highestRoom.name;
+          }
+        }
+
         // Check if under attack
         const activeAttacks = await ctx.db
           .query("actions")
@@ -173,13 +184,21 @@ export const getLeaderboard = query({
           score,
           roomIndex,
           pointsBalance: team.pointsBalance,
+          highestRoomIndex,
+          highestRoomName,
           shieldActive: team.shieldActive && team.shieldExpiry && team.shieldExpiry > now,
           underAttack: !!activeAttacks,
         };
       })
     );
 
-    return leaderboard.sort((a, b) => b.pointsBalance - a.pointsBalance);
+    // Sort by highest room first (descending), then by points (descending)
+    return leaderboard.sort((a, b) => {
+      if (b.highestRoomIndex !== a.highestRoomIndex) {
+        return b.highestRoomIndex - a.highestRoomIndex;
+      }
+      return b.pointsBalance - a.pointsBalance;
+    });
   },
 });
 
@@ -634,10 +653,23 @@ export const unlockRoom = mutation({
       throw new ConvexError("Insufficient points");
     }
 
-    await ctx.db.patch(team._id, {
+    // Update highestRoomId if this room is higher than current highest
+    let updateData: any = {
       pointsBalance: team.pointsBalance - room.unlockCost,
       currentRoomId: args.roomId,
-    });
+    };
+
+    // If no highestRoomId or this room is higher, update it
+    if (!team.highestRoomId) {
+      updateData.highestRoomId = args.roomId;
+    } else {
+      const currentHighest = await ctx.db.get(team.highestRoomId);
+      if (currentHighest && "orderIndex" in currentHighest && room.orderIndex > currentHighest.orderIndex) {
+        updateData.highestRoomId = args.roomId;
+      }
+    }
+
+    await ctx.db.patch(team._id, updateData);
 
     // Log
     await ctx.db.insert("auditLogs", {

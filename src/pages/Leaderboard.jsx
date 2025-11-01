@@ -57,6 +57,21 @@ export default function Leaderboard() {
 
   if (loading) return <div className="loading">Loading...</div>
 
+  // Group leaderboard entries by highest room
+  const groupedByRoom = {}
+  leaderboard.forEach(entry => {
+    const roomKey = entry.highestRoomIndex
+    if (!groupedByRoom[roomKey]) {
+      groupedByRoom[roomKey] = []
+    }
+    groupedByRoom[roomKey].push(entry)
+  })
+
+  // Sort room groups in descending order
+  const sortedRoomKeys = Object.keys(groupedByRoom)
+    .map(Number)
+    .sort((a, b) => b - a)
+
   return (
     <div>
       <div className="container">
@@ -72,54 +87,57 @@ export default function Leaderboard() {
           </div>
         </div>
 
-        <div className="card">
-          <table>
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Team</th>
-                <th>Score</th>
-                <th>Room</th>
-                <th>Points</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.map((entry, index) => (
-                <tr key={entry.teamId}>
-                  <td><strong>#{index + 1}</strong></td>
-                  <td>{entry.teamName}</td>
-                  <td><strong>{entry.pointsBalance.toFixed(2)}</strong></td>
-                  <td>Room {entry.roomIndex || 0}</td>
-                  <td>{entry.pointsBalance.toFixed(2)}</td>
-                  <td>
-                    {entry.shieldActive && (
-                      <span className="badge badge-success">Shield</span>
-                    )}
-                    {entry.underAttack && (
-                      <span className="badge badge-danger" style={{ marginLeft: '4px' }}>
-                        Under Attack
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    {team && entry.teamId !== team._id && (
-                      <button
-                        className="btn btn-danger"
-                        style={{ padding: '6px 12px', fontSize: '12px' }}
-                        onClick={() => handleAttack(entry.teamId)}
-                        disabled={entry.shieldActive}
-                      >
-                        Attack
-                      </button>
-                    )}
-                  </td>
+        {sortedRoomKeys.map((roomKey) => (
+          <div key={`room-${roomKey}`} className="card" style={{ marginTop: '24px' }}>
+            <h2 style={{ marginBottom: '16px', color: '#0ff', textShadow: '0 0 10px #0ff' }}>
+              {roomKey === 0 ? '🎯 Not Started' : `🚀 ${groupedByRoom[roomKey][0].highestRoomName} (Tier ${roomKey})`}
+            </h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Team</th>
+                  <th>Score</th>
+                  <th>Points</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {groupedByRoom[roomKey].map((entry, index) => (
+                  <tr key={entry.teamId}>
+                    <td><strong>#{index + 1}</strong></td>
+                    <td>{entry.teamName}</td>
+                    <td><strong>{entry.score.toFixed(0)}</strong></td>
+                    <td>{entry.pointsBalance.toFixed(0)} pts</td>
+                    <td>
+                      {entry.shieldActive && (
+                        <span className="badge badge-success">Shield</span>
+                      )}
+                      {entry.underAttack && (
+                        <span className="badge badge-danger" style={{ marginLeft: '4px' }}>
+                          Under Attack
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {team && entry.teamId !== team._id && (
+                        <button
+                          className="btn btn-danger"
+                          style={{ padding: '6px 12px', fontSize: '12px' }}
+                          onClick={() => handleAttack(entry.teamId)}
+                          disabled={entry.shieldActive}
+                        >
+                          Attack
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
     </div>
   )

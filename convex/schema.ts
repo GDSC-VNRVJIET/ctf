@@ -23,6 +23,7 @@ export default defineSchema({
     capacity: v.number(),
     pointsBalance: v.number(),
     currentRoomId: v.optional(v.id("rooms")),
+    highestRoomId: v.optional(v.id("rooms")), // Highest room unlocked for ranking
     shieldActive: v.boolean(),
     shieldExpiry: v.optional(v.number()),
     inviteCode: v.string(),
