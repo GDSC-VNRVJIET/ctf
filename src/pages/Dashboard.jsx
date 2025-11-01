@@ -29,7 +29,7 @@ export default function Dashboard() {
 
   if (loading) return <div className="loading">Loading...</div>
 
-  // Determine current room index
+  // Determine current room index (start at 0 if not started)
   const currentRoomIndex = rooms && team?.currentRoomId 
     ? rooms.findIndex(r => r._id === team.currentRoomId) 
     : -1
@@ -56,7 +56,7 @@ export default function Dashboard() {
                   <strong>Points:</strong> {team.pointsBalance.toFixed(2)}
                 </div>
                 <div>
-                  <strong>Current Room:</strong> {team.currentRoomId ? 'In Progress' : 'Not Started'}
+                  <strong>Current Room:</strong> {team.currentRoomId ? 'In Progress' : 'Not Started (Room 1 Available)'}
                 </div>
                 {team.shieldActive && (
                   <span className="badge badge-success">Shield Active</span>
@@ -87,9 +87,10 @@ export default function Dashboard() {
               <h2>Mission Rooms</h2>
               <div style={{ marginTop: '24px' }}>
                 {rooms.map((room, index) => {
-                  const isUnlocked = currentRoomIndex >= index;
-                  const isNext = index === currentRoomIndex + 1;
-                  const isAccessible = true; // All rooms are accessible without completion requirement
+                  // Room 0 is always unlocked at start; others depend on progression
+                  const isUnlocked = index === 0 || currentRoomIndex >= index;
+                  const isNext = index === currentRoomIndex + 1 || (currentRoomIndex === -1 && index === 1);
+                  const isAccessible = isUnlocked; // Only unlocked rooms are clickable
                   
                   return (
                     <div
