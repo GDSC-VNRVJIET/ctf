@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'convex/react';
 import toast from 'react-hot-toast';
 import { api } from '../../convex/_generated/api';
@@ -8,6 +8,7 @@ import { getErrorMessage } from '../utils/errorHandler';
 
 export default function RoomView() {
   const { roomId } = useParams();
+  const navigate = useNavigate();
   const { userId } = useAuth();
   const [selectedPuzzle, setSelectedPuzzle] = useState(null);
   const [showIntro, setShowIntro] = useState(true);
@@ -18,7 +19,7 @@ export default function RoomView() {
   // Mutation for unlocking room
   const unlockRoom = useMutation(api.game.unlockRoom);
 
-  // Select first puzzle when room loads
+  // Select first puzzle when room loads successfully
   useEffect(() => {
     if (room?.puzzles?.length > 0 && !selectedPuzzle) {
       setSelectedPuzzle(room.puzzles[0]);
@@ -84,7 +85,13 @@ export default function RoomView() {
 
   const loading = room === undefined || team === undefined;
   if (loading) return <div className="loading">Loading...</div>;
-  if (!room) return <div>Room not found</div>;
+  
+  // Handle room access errors (Room not found or not unlocked)
+  if (!room) {
+    toast.error('This room is not accessible. Complete previous rooms first!');
+    navigate(-1);
+    return null;
+  }
 
   const canAccess = !team?.currentRoomId || team.currentRoomId === roomId;
   const roomIntro = getRoomIntro(room);
