@@ -35,7 +35,7 @@ export default function AdminPanel() {
               className={`btn ${activeTab === 'puzzles' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveTab('puzzles')}
             >
-              Puzzles
+              Challenges
             </button>
             <button
               className={`btn ${activeTab === 'teams' ? 'btn-primary' : 'btn-secondary'}`}
@@ -85,7 +85,7 @@ function RoomsTab({ rooms }) {
           <tr>
             <th>Name</th>
             <th>Order</th>
-            <th>Puzzles</th>
+            <th>Challenges</th>
             <th>Unlock Cost</th>
             <th>Status</th>
             <th>Actions</th>
@@ -127,7 +127,7 @@ function PuzzlesTab({ puzzles }) {
 
   return (
     <div className="card">
-      <h2>Puzzles</h2>
+      <h2>Challenges</h2>
       <table style={{ marginTop: '16px' }}>
         <thead>
           <tr>
@@ -595,24 +595,48 @@ function CreatePuzzleForm() {
     description: '',
     flag: '',
     pointsReward: 100,
-    type: 'question'
+    type: 'question',
+    isChallenge: false,
+    challengeTimerMinutes: 10,
+    challengePointsMultiplier: 2,
+    topic: '',
+    difficulty: 'medium',
+    imageUrls: '',
+    fileUrls: '',
+    externalLinks: ''
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await createPuzzle({ userId, ...formData });
-      toast.success('Question created!');
+      // Parse arrays for imageUrls, fileUrls, externalLinks
+      const submitData = {
+        ...formData,
+        imageUrls: formData.imageUrls ? formData.imageUrls.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        fileUrls: formData.fileUrls ? JSON.parse(formData.fileUrls) : undefined,
+        externalLinks: formData.externalLinks ? JSON.parse(formData.externalLinks) : undefined,
+      };
+      
+      await createPuzzle({ userId, ...submitData });
+      toast.success('Challenge created!');
       setFormData({
         roomId: '',
         title: '',
         description: '',
         flag: '',
         pointsReward: 100,
-        type: 'question'
+        type: 'question',
+        isChallenge: false,
+        challengeTimerMinutes: 10,
+        challengePointsMultiplier: 2,
+        topic: '',
+        difficulty: 'medium',
+        imageUrls: '',
+        fileUrls: '',
+        externalLinks: ''
       });
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to create question'));
+      toast.error(getErrorMessage(error, 'Failed to create challenge'));
     }
   };
 
@@ -666,7 +690,101 @@ function CreatePuzzleForm() {
           onChange={(e) => setFormData({ ...formData, pointsReward: parseFloat(e.target.value) })}
         />
       </div>
-      <button type="submit" className="btn btn-primary">Create Question</button>
+      
+      <div className="form-group">
+        <label>Topic/Category</label>
+        <input
+          type="text"
+          value={formData.topic}
+          onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+          placeholder="e.g., Cryptography, Web Security"
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Difficulty</label>
+        <select
+          value={formData.difficulty}
+          onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
+        >
+          <option value="very_easy">Very Easy</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+          <option value="very_hard">Very Hard</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="checkbox"
+            checked={formData.isChallenge}
+            onChange={(e) => setFormData({ ...formData, isChallenge: e.target.checked })}
+          />
+          Is Challenge Question (Premium)
+        </label>
+      </div>
+
+      {formData.isChallenge && (
+        <>
+          <div className="form-group">
+            <label>Challenge Timer (Minutes)</label>
+            <input
+              type="number"
+              value={formData.challengeTimerMinutes}
+              onChange={(e) => setFormData({ ...formData, challengeTimerMinutes: parseInt(e.target.value) })}
+              min="1"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Points Multiplier</label>
+            <input
+              type="number"
+              step="0.1"
+              value={formData.challengePointsMultiplier}
+              onChange={(e) => setFormData({ ...formData, challengePointsMultiplier: parseFloat(e.target.value) })}
+              min="1"
+            />
+            <small style={{ color: '#aaa' }}>
+              Final reward: {formData.pointsReward * formData.challengePointsMultiplier} pts
+            </small>
+          </div>
+        </>
+      )}
+
+      <div className="form-group">
+        <label>Image URLs (comma-separated)</label>
+        <textarea
+          value={formData.imageUrls}
+          onChange={(e) => setFormData({ ...formData, imageUrls: e.target.value })}
+          placeholder="https://imgur.com/image1.png, https://imgur.com/image2.png"
+          rows={2}
+        />
+      </div>
+
+      <div className="form-group">
+        <label>File URLs (JSON array)</label>
+        <textarea
+          value={formData.fileUrls}
+          onChange={(e) => setFormData({ ...formData, fileUrls: e.target.value })}
+          placeholder='[{"name": "data.zip", "url": "https://example.com/data.zip"}]'
+          rows={3}
+        />
+      </div>
+
+      <div className="form-group">
+        <label>External Links (JSON array)</label>
+        <textarea
+          value={formData.externalLinks}
+          onChange={(e) => setFormData({ ...formData, externalLinks: e.target.value })}
+          placeholder='[{"title": "Documentation", "url": "https://example.com/docs"}]'
+          rows={3}
+        />
+      </div>
+
+      <button type="submit" className="btn btn-primary">Create Challenge</button>
     </form>
   );
 }

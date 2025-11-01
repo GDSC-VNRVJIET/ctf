@@ -133,6 +133,14 @@ export const createPuzzle = mutation({
     description: v.string(),
     flag: v.string(),
     pointsReward: v.number(),
+    isChallenge: v.optional(v.boolean()),
+    challengeTimerMinutes: v.optional(v.number()),
+    challengePointsMultiplier: v.optional(v.number()),
+    topic: v.optional(v.string()),
+    difficulty: v.optional(v.string()),
+    imageUrls: v.optional(v.array(v.string())),
+    fileUrls: v.optional(v.array(v.object({ name: v.string(), url: v.string() }))),
+    externalLinks: v.optional(v.array(v.object({ title: v.string(), url: v.string() }))),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args.userId);
@@ -147,6 +155,14 @@ export const createPuzzle = mutation({
       flagHash,
       pointsReward: args.pointsReward,
       isActive: true,
+      isChallenge: args.isChallenge,
+      challengeTimerMinutes: args.challengeTimerMinutes,
+      challengePointsMultiplier: args.challengePointsMultiplier,
+      topic: args.topic,
+      difficulty: args.difficulty,
+      imageUrls: args.imageUrls,
+      fileUrls: args.fileUrls,
+      externalLinks: args.externalLinks,
     });
 
     await ctx.db.insert("auditLogs", {

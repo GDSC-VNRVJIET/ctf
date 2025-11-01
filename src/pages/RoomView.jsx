@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils/errorHandler';
+import ChallengeGrid from '../components/ChallengeGrid';
+import ChallengeDetail from '../components/ChallengeDetail';
 
 export default function RoomView() {
   const { roomId } = useParams();
@@ -12,6 +14,7 @@ export default function RoomView() {
   const { userId } = useAuth();
   const [selectedPuzzle, setSelectedPuzzle] = useState(null);
   const [showIntro, setShowIntro] = useState(true);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'detail'
 
   const room = useQuery(api.game.getRoom, userId && roomId ? { userId, roomId } : 'skip');
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : 'skip');
@@ -152,58 +155,36 @@ export default function RoomView() {
         )}
 
         {canAccess && (
-          <>
-            <div className="card room-progress">
-              <div className="progress-info">
-                <span className="progress-label">Room Progress:</span>
-                <span className="progress-value">
-                  {selectedPuzzle ? room.puzzles.findIndex((p) => p._id === selectedPuzzle._id) + 1 : 0}{' '}
-                  / {room.puzzles?.length || 0}
-                </span>
-              </div>
-              <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{
-                    width: `${
-                      selectedPuzzle
-                        ? ((room.puzzles.findIndex((p) => p._id === selectedPuzzle._id) + 1) / (room.puzzles?.length || 1)) *
-                          100
-                        : 0
-                    }%`,
-                  }}
-                ></div>
-              </div>
-            </div>
-
-            <div className="puzzles-layout">
-              <div className="card puzzles-sidebar">
-                <h3 className="sidebar-title">Room Questions</h3>
-                <div className="puzzles-list">
-                  {room.puzzles?.map((puzzle, index) => (
-                    <div
-                      key={puzzle._id}
-                      className={`puzzle-item ${selectedPuzzle?._id === puzzle._id ? 'active' : ''}`}
-                      onClick={() => setSelectedPuzzle(puzzle)}
-                    >
-                      <div className="puzzle-header">
-                        <span className="room-question-badge">ROOM QUESTION</span>
-                        <span className="puzzle-number">#{index + 1}</span>
-                      </div>
-                      <h4 className="puzzle-title">{puzzle.title}</h4>
-                      <div className="puzzle-meta">
-                        <span className="points-reward">{puzzle.pointsReward} pts</span>
-                      </div>
-                    </div>
-                  ))}
+          <div className="card">
+            {viewMode === 'grid' ? (
+              <>
+                <div style={{ marginBottom: '20px' }}>
+                  <h2 style={{ color: '#0ff', marginBottom: '8px' }}>Challenges</h2>
+                  <p style={{ color: '#aaa' }}>Select a challenge to view details and submit your solution</p>
                 </div>
-              </div>
-
-              <div className="puzzle-content">
-                {selectedPuzzle && <PuzzleView puzzle={selectedPuzzle} userId={userId} />}
-              </div>
-            </div>
-          </>
+                <ChallengeGrid
+                  challenges={room.puzzles || []}
+                  onSelect={(challenge) => {
+                    setSelectedPuzzle(challenge);
+                    setViewMode('detail');
+                  }}
+                  solvedChallengeIds={room.solvedPuzzleIds || []}
+                />
+              </>
+            ) : (
+              selectedPuzzle && (
+                <ChallengeDetail
+                  challenge={selectedPuzzle}
+                  onBack={() => {
+                    setViewMode('grid');
+                    setSelectedPuzzle(null);
+                  }}
+                  userId={userId}
+                  team={team}
+                />
+              )
+            )}
+          </div>
         )}
       </div>
     </div>

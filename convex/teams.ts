@@ -84,6 +84,7 @@ export const createTeam = mutation({
       inviteCode: generateInviteCode(),
       shieldActive: false,
       createdAt: Date.now(),
+      nameVerified: true, // Name verified as unique
     });
 
     // Add creator as captain

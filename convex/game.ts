@@ -315,9 +315,47 @@ export const submitFlag = mutation({
     });
 
     if (isCorrect) {
+      let pointsAwarded = puzzle.pointsReward;
+
+      // Check if this is a challenge question
+      if (puzzle.isChallenge) {
+        const attempt = await ctx.db
+          .query("challengeAttempts")
+          .withIndex("by_team_and_challenge", (q) =>
+            q.eq("teamId", team._id).eq("challengeId", args.puzzleId)
+          )
+          .filter((q) => q.eq(q.field("isCompleted"), false))
+          .first();
+
+        if (!attempt) {
+          throw new ConvexError("No active challenge attempt. Start the challenge first.");
+        }
+
+        // Check if timer expired
+        if (now > attempt.endsAt) {
+          // Mark attempt as completed (failed)
+          await ctx.db.patch(attempt._id, {
+            isCompleted: true,
+            isPassed: false,
+          });
+          throw new ConvexError("Challenge timer expired. Investment lost.");
+        }
+
+        // Apply multiplier
+        const multiplier = puzzle.challengePointsMultiplier || 2;
+        pointsAwarded = Math.floor(puzzle.pointsReward * multiplier);
+
+        // Mark attempt as passed
+        await ctx.db.patch(attempt._id, {
+          isCompleted: true,
+          isPassed: true,
+          solvedAt: now,
+        });
+      }
+
       // Award points
       await ctx.db.patch(team._id, {
-        pointsBalance: team.pointsBalance + puzzle.pointsReward,
+        pointsBalance: team.pointsBalance + pointsAwarded,
       });
 
       // Log
@@ -329,12 +367,13 @@ export const submitFlag = mutation({
           teamName: team.name,
           puzzleId: args.puzzleId,
           puzzleTitle: puzzle.title,
-          points: puzzle.pointsReward,
+          points: pointsAwarded,
+          isChallenge: puzzle.isChallenge || false,
         }),
         createdAt: Date.now(),
       });
 
-      return { message: "Correct flag!", pointsAwarded: puzzle.pointsReward };
+      return { message: "Correct flag!", pointsAwarded };
     } else {
       await ctx.db.insert("auditLogs", {
         userId: args.userId,
@@ -501,6 +540,13 @@ export const performAction = mutation({
         throw new ConvexError("Target team not found");
       }
 
+      // Check if attacker is on cooldown
+      if (team.lastAttackTime && team.lastAttackTime + 5 * 60 * 1000 > now) {
+        const remainingMs = team.lastAttackTime + 5 * 60 * 1000 - now;
+        const remainingMin = Math.ceil(remainingMs / 60000);
+        throw new ConvexError(`Attack cooldown active. Wait ${remainingMin} more minute(s).`);
+      }
+
       // Check immunity
       if (targetTeam.immunityUntil && targetTeam.immunityUntil > now) {
         throw new ConvexError("Target team has immunity");
@@ -518,7 +564,10 @@ export const performAction = mutation({
 
       await ctx.db.patch(team._id, {
         pointsBalance: team.pointsBalance - cost,
+        lastAttackTime: now, // Set cooldown
       });
+
+      const cooldownUntil = now + 5 * 60 * 1000;
 
       const actionId = await ctx.db.insert("actions", {
         teamId: team._id,
@@ -528,11 +577,12 @@ export const performAction = mutation({
         createdAt: now,
         endsAt: now + 5 * 60 * 1000,
         status: "active",
+        cooldownUntil, // Track cooldown expiry
       });
 
-      // Grant immunity to target
+      // Grant 5-minute immunity to target
       await ctx.db.patch(args.targetTeamId, {
-        immunityUntil: now + 3 * 60 * 1000,
+        immunityUntil: now + 5 * 60 * 1000,
       });
 
       // Log
@@ -548,17 +598,36 @@ export const performAction = mutation({
 
       return { id: actionId, message: "Attack initiated" };
     } else if (args.actionType === "defend") {
+      // Check if shield already active
+      if (team.shieldActive && team.shieldExpiry && team.shieldExpiry > now) {
+        throw new ConvexError("Shield already active");
+      }
+
+      // Check if team is under attack
+      const activeAttacks = await ctx.db
+        .query("actions")
+        .withIndex("by_target_and_status", (q) =>
+          q.eq("targetTeamId", team._id).eq("status", "active")
+        )
+        .filter((q) => q.eq(q.field("actionType"), "attack"))
+        .collect();
+
+      if (activeAttacks.length > 0) {
+        throw new ConvexError("Cannot activate shield while under attack");
+      }
+
       const cost = 30.0;
       if (team.pointsBalance < cost) {
         throw new ConvexError("Insufficient points");
       }
 
-      const shieldExpiry = now + 10 * 60 * 1000;
+      const shieldExpiry = now + 5 * 60 * 1000; // Changed to 5 minutes
 
       await ctx.db.patch(team._id, {
         pointsBalance: team.pointsBalance - cost,
         shieldActive: true,
         shieldExpiry,
+        shieldPurchaseTime: now,
       });
 
       const actionId = await ctx.db.insert("actions", {
@@ -616,6 +685,122 @@ export const performAction = mutation({
     }
 
     throw new ConvexError("Invalid action type");
+  },
+});
+
+// Challenge Question Queries and Mutations
+export const getActiveChallengeAttempt = query({
+  args: {
+    userId: v.id("users"),
+    challengeId: v.id("puzzles"),
+  },
+  handler: async (ctx, args) => {
+    const team = await getUserTeam(ctx, args.userId);
+    
+    const attempt = await ctx.db
+      .query("challengeAttempts")
+      .withIndex("by_team_and_challenge", (q) =>
+        q.eq("teamId", team._id).eq("challengeId", args.challengeId)
+      )
+      .filter((q) => q.eq(q.field("isCompleted"), false))
+      .first();
+
+    return attempt;
+  },
+});
+
+export const startChallengeAttempt = mutation({
+  args: {
+    userId: v.id("users"),
+    challengeId: v.id("puzzles"),
+  },
+  handler: async (ctx, args) => {
+    const team = await getUserTeam(ctx, args.userId);
+    
+    if (!(await isCaptain(ctx, args.userId, team._id))) {
+      throw new ConvexError("Only captain can start challenge attempts");
+    }
+
+    // Get challenge
+    const challenge = await ctx.db.get(args.challengeId);
+    if (!challenge || !challenge.isActive) {
+      throw new ConvexError("Challenge not found or inactive");
+    }
+
+    if (!challenge.isChallenge) {
+      throw new ConvexError("This is not a challenge question");
+    }
+
+    // Check if already has active attempt
+    const existingAttempt = await ctx.db
+      .query("challengeAttempts")
+      .withIndex("by_team_and_challenge", (q) =>
+        q.eq("teamId", team._id).eq("challengeId", args.challengeId)
+      )
+      .filter((q) => q.eq(q.field("isCompleted"), false))
+      .first();
+
+    if (existingAttempt) {
+      throw new ConvexError("Challenge attempt already in progress");
+    }
+
+    // Check if already solved
+    const existingCorrect = await ctx.db
+      .query("submissions")
+      .withIndex("by_team_and_puzzle", (q) =>
+        q.eq("teamId", team._id).eq("puzzleId", args.challengeId)
+      )
+      .filter((q) => q.eq(q.field("isCorrect"), true))
+      .first();
+
+    if (existingCorrect) {
+      throw new ConvexError("Challenge already solved");
+    }
+
+    // Calculate investment (50% of points reward)
+    const investment = Math.floor(challenge.pointsReward * 0.5);
+    
+    if (team.pointsBalance < investment) {
+      throw new ConvexError(`Insufficient points. Need ${investment} points to start.`);
+    }
+
+    // Deduct investment
+    await ctx.db.patch(team._id, {
+      pointsBalance: team.pointsBalance - investment,
+    });
+
+    // Create attempt
+    const now = Date.now();
+    const timerMinutes = challenge.challengeTimerMinutes || 10;
+    const endsAt = now + timerMinutes * 60 * 1000;
+
+    const attemptId = await ctx.db.insert("challengeAttempts", {
+      teamId: team._id,
+      challengeId: args.challengeId,
+      startedAt: now,
+      endsAt,
+      investment,
+      isCompleted: false,
+    });
+
+    // Log
+    await ctx.db.insert("auditLogs", {
+      userId: args.userId,
+      action: "start_challenge",
+      detailsJson: JSON.stringify({
+        teamId: team._id,
+        challengeId: args.challengeId,
+        investment,
+      }),
+      createdAt: now,
+    });
+
+    return {
+      attemptId,
+      timerMinutes,
+      investment,
+      message: "Challenge started! Timer is running.",
+    };
   },
 });
 

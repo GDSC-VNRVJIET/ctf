@@ -31,6 +31,9 @@ export default defineSchema({
     immunityUntil: v.optional(v.number()),
     onboardingComplete: v.optional(v.boolean()), // New field for onboarding
     rulesFlagSubmitted: v.optional(v.boolean()), // New field for flag submission tracking
+    lastAttackTime: v.optional(v.number()), // Track last attack for cooldown
+    shieldPurchaseTime: v.optional(v.number()), // Track shield purchase time
+    nameVerified: v.optional(v.boolean()), // Flag for unique name validation
   })
     .index("by_name", ["name"])
     .index("by_invite", ["inviteCode"])
@@ -70,6 +73,14 @@ export default defineSchema({
     isActive: v.boolean(),
     isRoomQuestion: v.optional(v.boolean()), // New field for room questions
     skipToRoom: v.optional(v.id("rooms")), // New field for skip destination
+    isChallenge: v.optional(v.boolean()), // Mark as challenge question
+    challengeTimerMinutes: v.optional(v.number()), // Timer duration for challenge
+    challengePointsMultiplier: v.optional(v.number()), // Point multiplier (e.g., 2x)
+    topic: v.optional(v.string()), // Category/topic (e.g., "Cryptography")
+    difficulty: v.optional(v.string()), // very_easy, easy, medium, hard, very_hard
+    imageUrls: v.optional(v.array(v.string())), // Image URLs for challenge
+    fileUrls: v.optional(v.array(v.object({ name: v.string(), url: v.string() }))), // File downloads
+    externalLinks: v.optional(v.array(v.object({ title: v.string(), url: v.string() }))), // External links
   })
     .index("by_room", ["roomId"])
     .index("by_active", ["isActive"]),
@@ -120,6 +131,7 @@ export default defineSchema({
     createdAt: v.number(),
     endsAt: v.optional(v.number()),
     status: v.string(), // active, expired, blocked
+    cooldownUntil: v.optional(v.number()), // Track 5-minute cooldown for attacker
   })
     .index("by_team", ["teamId"])
     .index("by_target", ["targetTeamId"])
@@ -169,4 +181,19 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_team_and_status", ["teamId", "status"])
     .index("by_user_and_status", ["userId", "status"]),
+
+  challengeAttempts: defineTable({
+    teamId: v.id("teams"),
+    challengeId: v.id("puzzles"),
+    startedAt: v.number(),
+    endsAt: v.number(),
+    investment: v.number(),
+    isCompleted: v.boolean(),
+    isPassed: v.optional(v.boolean()),
+    solvedAt: v.optional(v.number()),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_challenge", ["challengeId"])
+    .index("by_team_and_challenge", ["teamId", "challengeId"])
+    .index("by_team_and_completed", ["teamId", "isCompleted"]),
 });
