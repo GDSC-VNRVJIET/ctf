@@ -15,23 +15,47 @@ import AdminPanel from './pages/AdminPanel'
 import MainLayout from './components/MainLayout'
 
 function PrivateRoute({ children }) {
-  const { user, loading } = useAuth()
+  const { user, userId, loading } = useAuth()
   
   if (loading) return <div className="loading">Loading...</div>
-  if (!user) return <Navigate to="/login" />
+  
+  // If no userId in localStorage, redirect to login immediately
+  if (!userId) return <Navigate to="/login" replace />
+  
+  // If userId exists but user data hasn't loaded yet, show loading
+  if (!user) return <div className="loading">Loading...</div>
   
   return <MainLayout>{children}</MainLayout>
 }
 
 function AdminRoute({ children }) {
-  const { user, loading } = useAuth()
+  const { user, userId, loading } = useAuth()
   
-  if (loading) return <div>Loading...</div>
-  if (!user || (user.role !== 'admin' && user.role !== 'organiser')) {
-    return <Navigate to="/dashboard" />
+  if (loading) return <div className="loading">Loading...</div>
+  
+  // If no userId in localStorage, redirect to login immediately
+  if (!userId) return <Navigate to="/login" replace />
+  
+  // If userId exists but user data hasn't loaded yet, show loading
+  if (!user) return <div className="loading">Loading...</div>
+  
+  // Check admin/organiser role
+  if (user.role !== 'admin' && user.role !== 'organiser') {
+    return <Navigate to="/dashboard" replace />
   }
   
   return <MainLayout>{children}</MainLayout>
+}
+
+function PublicRoute({ children }) {
+  const { userId, loading } = useAuth()
+  
+  if (loading) return <div className="loading">Loading...</div>
+  
+  // If already logged in, redirect to dashboard
+  if (userId) return <Navigate to="/dashboard" replace />
+  
+  return children
 }
 
 function App() {
@@ -41,8 +65,12 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={
+            <PublicRoute><Login /></PublicRoute>
+          } />
+          <Route path="/signup" element={
+            <PublicRoute><Signup /></PublicRoute>
+          } />
           
           <Route path="/onboarding" element={
             <PrivateRoute><Onboarding /></PrivateRoute>

@@ -36,7 +36,7 @@ export default function Rules() {
           <ul style={{ marginLeft: '20px', marginBottom: '16px' }}>
             <li><strong>Challenge Questions (High Difficulty):</strong> Each room has a Challenge Question that can be attempted only once by spending points. Solving it yields 2X points (double the investment). If not solved, you gain 0 points.</li>
             <li><strong>Room Questions:</strong> Rooms 3 and 4 include a Room Question that, when solved, allows your team to directly move to the next room without gaining or losing any points.</li>
-            <li><strong>Flag Format:</strong> Flags are case-sensitive. Example: <code>GDGC{'{'}r00m_strat3gy_unl0cked{'}'}</code></li>
+            <li><strong>Flag Format:</strong> Flags are case-sensitive. Example: GDGC{'{'}r00m_strat3gy_unl0cked{'}'}</li>
           </ul>
 
           <h2>⚔️ Attack & Defense Rules</h2>

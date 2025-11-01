@@ -13,6 +13,9 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
     api.game.getActiveChallengeAttempt,
     userId && challenge.isChallenge ? { userId, challengeId: challenge._id } : "skip"
   );
+  
+  // Fetch clues for this challenge
+  const clues = useQuery(api.game.getCluesByPuzzle, { puzzleId: challenge._id });
 
   // Timer effect
   useEffect(() => {
@@ -146,16 +149,71 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
           </span>
         </div>
 
-        {/* Description */}
+        {/* Description/Clue */}
         <div style={{
-          color: '#fff',
-          lineHeight: '1.8',
-          marginBottom: '24px',
-          fontSize: '16px',
-          whiteSpace: 'pre-wrap'
+          background: 'rgba(0, 255, 255, 0.05)',
+          border: '1px solid rgba(0, 255, 255, 0.3)',
+          borderRadius: '8px',
+          padding: '16px',
+          marginBottom: '24px'
         }}>
-          {challenge.description}
+          <h3 style={{ color: '#0ff', marginBottom: '12px', fontSize: '18px' }}>
+            📝 Challenge Description
+          </h3>
+          <div style={{
+            color: '#fff',
+            lineHeight: '1.8',
+            fontSize: '16px',
+            whiteSpace: 'pre-wrap',
+            textShadow: '0 0 1px rgba(255, 255, 255, 0.5)'
+          }}>
+            {challenge.description || 'No description provided.'}
+          </div>
         </div>
+
+        {/* Clues Section */}
+        {clues && clues.length > 0 && (
+          <div style={{
+            background: 'rgba(255, 255, 0, 0.05)',
+            border: '1px solid rgba(255, 255, 0, 0.3)',
+            borderRadius: '8px',
+            padding: '16px',
+            marginBottom: '24px'
+          }}>
+            <h3 style={{ color: '#ff0', marginBottom: '12px', fontSize: '18px' }}>
+              💡 Available Clues
+            </h3>
+            {clues.map((clue, index) => (
+              <div
+                key={clue._id}
+                style={{
+                  background: 'rgba(255, 255, 0, 0.1)',
+                  border: '1px solid rgba(255, 255, 0, 0.3)',
+                  borderRadius: '6px',
+                  padding: '12px',
+                  marginBottom: '8px'
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '8px'
+                }}>
+                  <span style={{ color: '#ff0', fontWeight: 'bold' }}>
+                    💡 Clue {index + 1}
+                  </span>
+                  <span style={{ color: '#ff0', fontSize: '14px' }}>
+                    {clue.cost} pts
+                  </span>
+                </div>
+                <div style={{ color: '#fff', fontSize: '14px', lineHeight: '1.6' }}>
+                  {clue.text}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Images */}
         {challenge.imageUrls && challenge.imageUrls.length > 0 && (
@@ -355,7 +413,10 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
               style={{
                 width: '100%',
                 marginBottom: '16px',
-                fontFamily: 'monospace'
+                fontFamily: 'monospace',
+                padding: '16px',
+                fontSize: '16px',
+                minHeight: '56px'
               }}
               disabled={challenge.isChallenge && !activeAttempt}
             />

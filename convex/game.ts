@@ -209,6 +209,17 @@ export const getPerks = query({
   },
 });
 
+export const getCluesByPuzzle = query({
+  args: { puzzleId: v.id("puzzles") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("clues")
+      .withIndex("by_puzzle", (q) => q.eq("puzzleId", args.puzzleId))
+      .order("asc")
+      .collect();
+  },
+});
+
 // Mutations
 export const submitFlag = mutation({
   args: {

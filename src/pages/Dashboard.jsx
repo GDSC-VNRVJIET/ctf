@@ -4,17 +4,14 @@ import { useQuery, useMutation } from 'convex/react'
 import toast from 'react-hot-toast'
 import { api } from '../../convex/_generated/api'
 import { useState, useEffect } from 'react'
-import LeaderboardSidebar from '../components/LeaderboardSidebar'
 
 export default function Dashboard() {
   const { user, userId } = useAuth()
   const navigate = useNavigate()
   const [shieldTimeRemaining, setShieldTimeRemaining] = useState('')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
   const rooms = useQuery(api.game.getRooms, userId ? { userId } : "skip")
-  const leaderboard = useQuery(api.game.getLeaderboard)
 
   const leaveTeam = useMutation(api.teams.leaveTeam)
 
@@ -67,12 +64,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      <LeaderboardSidebar 
-        isOpen={sidebarOpen} 
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-        leaderboard={leaderboard}
-        myTeam={team}
-      />
       <div className="container">
         <h1 style={{ color: 'white', marginBottom: '24px' }}>Dashboard</h1>
 
@@ -118,9 +109,6 @@ export default function Dashboard() {
                 </Link>
                 <Link to="/shop" className="btn btn-primary" style={{ marginRight: '8px' }}>
                   Shop
-                </Link>
-                <Link to="/leaderboard" className="btn btn-primary" style={{ marginRight: '8px' }}>
-                  Leaderboard
                 </Link>
                 {team.captainUserId !== user.id && (
                   <button
