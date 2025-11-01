@@ -1,21 +1,22 @@
-import { useState, useEffect } from 'react'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '../../convex/_generated/api'
-import { useAuth } from '../context/AuthContext'
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import toast from 'react-hot-toast';
+import { api } from '../../convex/_generated/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState('rooms')
-  const { userId } = useAuth()
+  const [activeTab, setActiveTab] = useState('rooms');
+  const { userId } = useAuth();
 
-  const rooms = useQuery(api.admin.getAllRooms, activeTab === 'rooms' ? { userId } : "skip")
-  const teams = useQuery(api.admin.getAllTeams, activeTab === 'teams' ? { userId } : "skip")
-  const logs = useQuery(api.admin.getLogs, activeTab === 'logs' ? { userId } : "skip")
-  const puzzles = useQuery(api.admin.getAllPuzzles, activeTab === 'puzzles' ? { userId } : "skip")
+  const rooms = useQuery(api.admin.getAllRooms, activeTab === 'rooms' ? { userId } : "skip");
+  const teams = useQuery(api.admin.getAllTeams, activeTab === 'teams' ? { userId } : "skip");
+  const logs = useQuery(api.admin.getLogs, activeTab === 'logs' ? { userId } : "skip");
+  const puzzles = useQuery(api.admin.getAllPuzzles, activeTab === 'puzzles' ? { userId } : "skip");
 
   const loading = (activeTab === 'rooms' && rooms === undefined) ||
     (activeTab === 'teams' && teams === undefined) ||
     (activeTab === 'logs' && logs === undefined) ||
-    (activeTab === 'puzzles' && puzzles === undefined)
+    (activeTab === 'puzzles' && puzzles === undefined);
 
   return (
     <div>
@@ -69,11 +70,11 @@ export default function AdminPanel() {
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function RoomsTab({ rooms }) {
-  const [editingRoom, setEditingRoom] = useState(null)
+  const [editingRoom, setEditingRoom] = useState(null);
 
   return (
     <div className="card">
@@ -117,11 +118,11 @@ function RoomsTab({ rooms }) {
         <EditRoomForm room={editingRoom} onClose={() => setEditingRoom(null)} />
       )}
     </div>
-  )
+  );
 }
 
 function PuzzlesTab({ puzzles }) {
-  const [editingPuzzle, setEditingPuzzle] = useState(null)
+  const [editingPuzzle, setEditingPuzzle] = useState(null);
 
   return (
     <div className="card">
@@ -165,36 +166,38 @@ function PuzzlesTab({ puzzles }) {
         <EditPuzzleForm puzzle={editingPuzzle} onClose={() => setEditingPuzzle(null)} />
       )}
     </div>
-  )
+  );
 }
 
 function TeamsTab({ teams }) {
-  const refundPoints = useMutation(api.admin.refundPoints)
-  const disableTeam = useMutation(api.admin.disableTeam)
-  const deleteTeam = useMutation(api.admin.deleteTeamAdmin)
+  const refundPoints = useMutation(api.admin.refundPoints);
+  const disableTeam = useMutation(api.admin.disableTeam);
+  const deleteTeam = useMutation(api.admin.deleteTeamAdmin);
 
   const handleRefund = async (teamId) => {
-    const amount = prompt('Enter refund amount:')
-    if (!amount) return
+    const amount = prompt('Enter refund amount:');
+    if (!amount) return;
 
     try {
-      await refundPoints({ teamId, amount: parseFloat(amount) })
-      alert('Points refunded')
+      await refundPoints({ teamId, amount: parseFloat(amount) });
+      toast.success('Points refunded');
     } catch (error) {
-      alert(error?.message || 'Failed to refund points')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to refund points';
+      toast.error(errorMessage);
     }
-  }
+  };
 
   const handleDisable = async (teamId) => {
-    if (!confirm('Disable this team?')) return
+    if (!confirm('Disable this team?')) return;
 
     try {
-      await disableTeam({ teamId })
-      alert('Team disabled')
+      await disableTeam({ teamId });
+      toast.success('Team disabled');
     } catch (error) {
-      alert(error?.message || 'Failed to disable team')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to disable team';
+      toast.error(errorMessage);
     }
-  }
+  };
 
   const { userId } = useAuth();
   const handleDelete = async (teamId) => {
@@ -202,11 +205,12 @@ function TeamsTab({ teams }) {
 
     try {
       await deleteTeam({ userId, teamId });
-      alert('Team deleted');
+      toast.success('Team deleted');
     } catch (error) {
-      alert(error?.message || 'Failed to delete team');
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to delete team';
+      toast.error(errorMessage);
     }
-  }
+  };
 
   return (
     <div className="card">
@@ -260,7 +264,7 @@ function TeamsTab({ teams }) {
         </tbody>
       </table>
     </div>
-  )
+  );
 }
 
 function LogsTab({ logs }) {
@@ -290,11 +294,11 @@ function LogsTab({ logs }) {
         </table>
       </div>
     </div>
-  )
+  );
 }
 
 function CreateTab() {
-  const [contentType, setContentType] = useState('room')
+  const [contentType, setContentType] = useState('room');
 
   return (
     <div className="card">
@@ -316,11 +320,11 @@ function CreateTab() {
           {contentType === 'clue' && <CreateClueForm />}
       </div>
     </div>
-  )
+  );
 }
 
 function CreateRoomForm() {
-  const createRoom = useMutation(api.admin.createRoom)
+  const createRoom = useMutation(api.admin.createRoom);
   const { userId } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -329,24 +333,25 @@ function CreateRoomForm() {
     description: '',
     isChallenge: false,
     unlockCost: 0
-  })
+  });
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      await createRoom({ userId, ...formData })
-      alert('Room created!')
+      await createRoom({ userId, ...formData });
+      toast.success('Room created!');
       setFormData({
         name: '',
         orderIndex: 1,
         description: '',
         isChallenge: false,
         unlockCost: 0
-      })
+      });
     } catch (error) {
-      alert(error?.message || 'Failed to create room')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to create room';
+      toast.error(errorMessage);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit}>
@@ -386,11 +391,11 @@ function CreateRoomForm() {
       </div>
       <button type="submit" className="btn btn-primary">Create Room</button>
     </form>
-  )
+  );
 }
 
 function EditRoomForm({ room, onClose }) {
-  const updateRoom = useMutation(api.admin.updateRoom)
+  const updateRoom = useMutation(api.admin.updateRoom);
 
   const [formData, setFormData] = useState({
     roomId: room._id,
@@ -400,19 +405,20 @@ function EditRoomForm({ room, onClose }) {
     isChallenge: room.isChallenge,
     unlockCost: room.unlockCost,
     challengeInvestment: room.challengeInvestment
-  })
+  });
 
   const { userId } = useAuth();
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       await updateRoom({ userId, ...formData });
-      alert('Room updated!');
+      toast.success('Room updated!');
       onClose();
     } catch (error) {
-      alert(error?.message || 'Failed to update room');
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to update room';
+      toast.error(errorMessage);
     }
-  }
+  };
 
   return (
     <div className="card" style={{ marginTop: '16px' }}>
@@ -458,7 +464,7 @@ function EditRoomForm({ room, onClose }) {
         </div>
       </form>
     </div>
-  )
+  );
 }
 
 function EditPuzzleForm({ puzzle, onClose }) {
@@ -482,10 +488,11 @@ function EditPuzzleForm({ puzzle, onClose }) {
       // Remove isActive if present
       const { isActive, ...payload } = formData;
       await updatePuzzle({ userId, ...payload });
-      alert('Question updated!');
+      toast.success('Question updated!');
       onClose();
     } catch (error) {
-      alert(error?.message || 'Failed to update question');
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to update question';
+      toast.error(errorMessage);
     }
   }
 
@@ -579,7 +586,7 @@ function CreatePuzzleForm() {
     e.preventDefault();
     try {
       await createPuzzle({ userId, ...formData });
-      alert('Question created!');
+      toast.success('Question created!');
       setFormData({
         roomId: '',
         title: '',
@@ -589,7 +596,8 @@ function CreatePuzzleForm() {
         type: 'question'
       });
     } catch (error) {
-      alert(error?.message || 'Failed to create question');
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to create question';
+      toast.error(errorMessage);
     }
   };
 
@@ -679,7 +687,7 @@ function CreateClueForm() {
     e.preventDefault();
     try {
       await createClue({ userId, ...formData });
-      alert('Clue created!');
+      toast.success('Clue created!');
       setFormData({
         puzzleId: '',
         text: '',
@@ -687,10 +695,11 @@ function CreateClueForm() {
         orderIndex: 0
       });
     } catch (error) {
-      alert(error?.message || 'Failed to create clue');
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to create clue';
+      toast.error(errorMessage);
     }
   };
-  
+
   if (!rooms || !allPuzzles) return <div>Loading rooms and puzzles...</div>;
   const roomPuzzles = allPuzzles.filter(p => p.roomId === selectedRoom);
   

@@ -1,77 +1,82 @@
-import { useState, useEffect } from 'react'
-import { useAuth } from '../context/AuthContext'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '../../convex/_generated/api'
+import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useQuery, useMutation } from 'convex/react';
+import toast from 'react-hot-toast';
+import { api } from '../../convex/_generated/api';
 
 export default function TeamManagement() {
-  const { user, userId } = useAuth()
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showJoinModal, setShowJoinModal] = useState(false)
+  const { user, userId } = useAuth();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
-  const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
+  const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip");
   const members = useQuery(
     api.teams.getTeamMembers,
     userId && team ? { userId, teamId: team._id } : "skip"
-  )
+  );
   const joinRequests = useQuery(
     api.teams.getTeamJoinRequests,
     userId && team && team.captainUserId === userId ? { userId, teamId: team._id } : "skip"
-  )
+  );
 
   // Mutations
-  const acceptRequest = useMutation(api.teams.acceptJoinRequest)
-  const rejectRequest = useMutation(api.teams.rejectJoinRequest)
-  const removeMember = useMutation(api.teams.removeTeamMember)
-  const deleteTeam = useMutation(api.teams.deleteTeam)
+  const acceptRequest = useMutation(api.teams.acceptJoinRequest);
+  const rejectRequest = useMutation(api.teams.rejectJoinRequest);
+  const removeMember = useMutation(api.teams.removeTeamMember);
+  const deleteTeam = useMutation(api.teams.deleteTeam);
 
-  const loading = team === undefined
+  const loading = team === undefined;
 
   const handleAcceptRequest = async (requestId) => {
-    if (!confirm('Accept this join request?')) return
+    if (!confirm('Accept this join request?')) return;
 
     try {
-      await acceptRequest({ userId, teamId: team._id, requestId })
-      alert('Request accepted!')
+      await acceptRequest({ userId, teamId: team._id, requestId });
+      toast.success('Request accepted!');
     } catch (error) {
-      alert(error?.message || 'Failed to accept request')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to accept request';
+      toast.error(errorMessage);
     }
-  }
+  };
 
   const handleRejectRequest = async (requestId) => {
-    if (!confirm('Reject this join request?')) return
+    if (!confirm('Reject this join request?')) return;
 
     try {
-      await rejectRequest({ userId, teamId: team._id, requestId })
-      alert('Request rejected!')
+      await rejectRequest({ userId, teamId: team._id, requestId });
+      toast.success('Request rejected!');
     } catch (error) {
-      alert(error?.message || 'Failed to reject request')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to reject request';
+      toast.error(errorMessage);
     }
-  }
+  };
 
   const handleRemoveMember = async (targetUserId, userName) => {
-    if (!confirm(`Remove ${userName} from the team?`)) return
+    if (!confirm(`Remove ${userName} from the team?`)) return;
 
     try {
-      await removeMember({ userId, teamId: team._id, targetUserId })
-      alert('Member removed successfully!')
+      await removeMember({ userId, teamId: team._id, targetUserId });
+      toast.success('Member removed successfully!');
     } catch (error) {
-      alert(error?.message || 'Failed to remove member')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to remove member';
+      toast.error(errorMessage);
     }
-  }
+  };
 
   const handleDeleteTeam = async () => {
-    if (!confirm('Are you sure you want to delete this team? This action cannot be undone!')) return
+    if (!confirm('Are you sure you want to delete this team? This action cannot be undone!')) return;
 
     try {
-      await deleteTeam({ userId, teamId: team._id })
-      alert('Team deleted successfully!')
-      window.location.reload()
+      await deleteTeam({ userId, teamId: team._id });
+      toast.success('Team deleted successfully!');
+      window.location.reload();
     } catch (error) {
-      alert(error?.message || 'Failed to delete team')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to delete team';
+      toast.error(errorMessage);
     }
-  }
+  };
 
-  if (loading) return <div className="loading">Loading...</div>
+  if (loading) return <div className="loading">Loading...</div>;
 
   return (
     <div>
@@ -203,29 +208,31 @@ export default function TeamManagement() {
 }
 
 function CreateTeamModal({ onClose }) {
-  const { userId } = useAuth()
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [capacity, setCapacity] = useState(4)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const { userId } = useAuth();
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [capacity, setCapacity] = useState(4);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const createTeam = useMutation(api.teams.createTeam)
+  const createTeam = useMutation(api.teams.createTeam);
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
     try {
-      await createTeam({ userId, name, description, capacity })
-      onClose()
+      await createTeam({ userId, name, description, capacity });
+      toast.success('Team created successfully!');
+      onClose();
     } catch (err) {
-      setError(err?.message || 'Failed to create team')
+      const errorMessage = err?.message?.split('\n')[0] || 'Failed to create team';
+      setError(errorMessage);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -274,40 +281,41 @@ function CreateTeamModal({ onClose }) {
 }
 
 function JoinTeamModal({ onClose }) {
-  const { userId } = useAuth()
-  const [inviteCode, setInviteCode] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const { userId } = useAuth();
+  const [inviteCode, setInviteCode] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const getTeamByInvite = useQuery(
     api.teams.getTeamByInviteCode,
     inviteCode ? { inviteCode } : "skip"
-  )
-  const requestJoin = useMutation(api.teams.requestJoinTeam)
+  );
+  const requestJoin = useMutation(api.teams.requestJoinTeam);
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
     try {
       if (!getTeamByInvite) {
-        throw new Error('Team not found with that invite code')
+        throw new Error('Team not found with that invite code');
       }
 
       await requestJoin({
         userId,
         teamId: getTeamByInvite._id,
         inviteCode
-      })
-      alert('Join request sent successfully! Wait for captain approval.')
-      onClose()
+      });
+      toast.success('Join request sent successfully! Wait for captain approval.');
+      onClose();
     } catch (err) {
-      setError(err?.message || 'Failed to send join request')
+      const errorMessage = err?.message?.split('\n')[0] || 'Failed to send join request';
+      toast.error(errorMessage);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>

@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from 'convex/react'
+import toast from 'react-hot-toast'
 import { api } from '../../convex/_generated/api'
 import { useAuth } from '../context/AuthContext'
 
 export default function Rules() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { userId } = useAuth()
   const [flagInput, setFlagInput] = useState('')
   const [hasSubmitted, setHasSubmitted] = useState(false)
 
-  const team = useQuery(api.teams.getUserTeam, { userId: user?._id })
-  const rules = useQuery(api.rules.getActiveRules)
+  const team = useQuery(api.teams.getUserTeam, userId ? { userId } : "skip")
   const submitFlag = useMutation(api.game.submitRulesFlag)
 
   useEffect(() => {
@@ -31,13 +31,14 @@ export default function Rules() {
       })
 
       if (result.success) {
-        alert(`Correct! +${result.points} points awarded to your team!`)
+        toast.success(`Correct! +${result.points} points awarded to your team!`)
         setHasSubmitted(true)
       } else {
-        alert('Incorrect flag. Try again!')
+        toast.error('Incorrect flag. Try again!')
       }
     } catch (error) {
-      alert(error?.message || 'Failed to submit flag')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to submit flag';
+      toast.error(errorMessage)
     }
   }
 

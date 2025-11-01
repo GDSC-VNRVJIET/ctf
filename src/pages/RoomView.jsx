@@ -1,74 +1,82 @@
-import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '../../convex/_generated/api'
-import { useAuth } from '../context/AuthContext'
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery, useMutation } from 'convex/react';
+import toast from 'react-hot-toast';
+import { api } from '../../convex/_generated/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function RoomView() {
-  const { roomId } = useParams()
-  const { userId } = useAuth()
-  const [selectedPuzzle, setSelectedPuzzle] = useState(null)
-  const [showIntro, setShowIntro] = useState(true)
+  const { roomId } = useParams();
+  const { userId } = useAuth();
+  const [selectedPuzzle, setSelectedPuzzle] = useState(null);
+  const [showIntro, setShowIntro] = useState(true);
 
-  const room = useQuery(api.game.getRoom, userId && roomId ? { userId, roomId } : "skip")
-  const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
+  const room = useQuery(api.game.getRoom, userId && roomId ? { userId, roomId } : 'skip');
+  const team = useQuery(api.teams.getMyTeam, userId ? { userId } : 'skip');
 
   // Mutation for unlocking room
-  const unlockRoom = useMutation(api.game.unlockRoom)
+  const unlockRoom = useMutation(api.game.unlockRoom);
 
   // Select first puzzle when room loads
   useEffect(() => {
     if (room?.puzzles?.length > 0 && !selectedPuzzle) {
-      setSelectedPuzzle(room.puzzles[0])
+      setSelectedPuzzle(room.puzzles[0]);
     }
-  }, [room, selectedPuzzle])
+  }, [room, selectedPuzzle]);
 
   // Room intro stories
   const getRoomIntro = (roomName) => {
     const intros = {
-      "Lobby": {
-        title: "ENTRY POINT",
-        description: "You're outside the massive corporate building. The target is within reach. This is where it all begins.",
-        story: "Security cameras sweep the perimeter. Guards patrol the entrance. This is your first obstacle. Use your skills wisely."
+      Lobby: {
+        title: 'ENTRY POINT',
+        description:
+          "You're outside the massive corporate building. The target is within reach. This is where it all begins.",
+        story:
+          'Security cameras sweep the perimeter. Guards patrol the entrance. This is your first obstacle. Use your skills wisely.',
       },
-      "Server Room": {
-        title: "THE DIGITAL VAULT",
-        description: "You've breached the outer defenses. Now comes the real challenge - the server room.",
-        story: "Racks of servers hum with data. Each one holds secrets worth stealing. But the real treasure lies deeper."
+      'Server Room': {
+        title: 'THE DIGITAL VAULT',
+        description:
+          "You've breached the outer defenses. Now comes the real challenge - the server room.",
+        story:
+          'Racks of servers hum with data. Each one holds secrets worth stealing. But the real treasure lies deeper.',
       },
-      "CEO Office": {
-        title: "THE PRIZE",
-        description: "The final target. The CEO's office contains the crown jewels of this heist.",
-        story: "Private documents, encrypted drives, classified information. Everything is here. But getting out alive is another matter."
-      }
-    }
+      'CEO Office': {
+        title: 'THE PRIZE',
+        description:
+          "The final target. The CEO's office contains the crown jewels of this heist.",
+        story:
+          'Private documents, encrypted drives, classified information. Everything is here. But getting out alive is another matter.',
+      },
+    };
     return intros[roomName] || {
-      title: "UNKNOWN TERRITORY",
+      title: 'UNKNOWN TERRITORY',
       description: "You've entered an uncharted part of the target building.",
-      story: "Proceed with caution. Every step could be your last."
-    }
-  }
+      story: 'Proceed with caution. Every step could be your last.',
+    };
+  };
 
   const handleUnlockRoom = async () => {
     if (!userId) {
-      alert('Please log in first')
-      return
+      toast.error('Please log in first');
+      return;
     }
 
     try {
-      await unlockRoom({ userId, roomId })
-      alert('Room unlocked!')
+      await unlockRoom({ userId, roomId });
+      toast.success('Room unlocked!');
     } catch (error) {
-      alert(error?.message || 'Failed to unlock room')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to unlock room';
+      toast.error(errorMessage);
     }
-  }
+  };
 
-  const loading = room === undefined || team === undefined
-  if (loading) return <div className="loading">Loading...</div>
-  if (!room) return <div>Room not found</div>
+  const loading = room === undefined || team === undefined;
+  if (loading) return <div className="loading">Loading...</div>;
+  if (!room) return <div>Room not found</div>;
 
-  const canAccess = !team?.currentRoomId || team.currentRoomId === roomId
-  const roomIntro = getRoomIntro(room.name)
+  const canAccess = !team?.currentRoomId || team.currentRoomId === roomId;
+  const roomIntro = getRoomIntro(room.name);
 
   if (showIntro && canAccess) {
     return (
@@ -93,7 +101,7 @@ export default function RoomView() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -105,8 +113,8 @@ export default function RoomView() {
             <p className="room-description">{room.description}</p>
           </div>
           <div className="room-actions">
-            <button 
-              className="btn btn-secondary" 
+            <button
+              className="btn btn-secondary"
               onClick={() => setShowIntro(true)}
               style={{ fontSize: '10px', padding: '8px 16px' }}
             >
@@ -131,15 +139,20 @@ export default function RoomView() {
               <div className="progress-info">
                 <span className="progress-label">Room Progress:</span>
                 <span className="progress-value">
-                  {selectedPuzzle ? (room.puzzles.findIndex(p => p._id === selectedPuzzle._id) + 1) : 0} 
+                  {selectedPuzzle ? room.puzzles.findIndex((p) => p._id === selectedPuzzle._id) + 1 : 0}{' '}
                   / {room.puzzles?.length || 0}
                 </span>
               </div>
               <div className="progress-bar">
-                <div 
-                  className="progress-fill" 
-                  style={{ 
-                    width: `${selectedPuzzle ? ((room.puzzles.findIndex(p => p._id === selectedPuzzle._id) + 1) / (room.puzzles?.length || 1)) * 100 : 0}%` 
+                <div
+                  className="progress-fill"
+                  style={{
+                    width: `${
+                      selectedPuzzle
+                        ? ((room.puzzles.findIndex((p) => p._id === selectedPuzzle._id) + 1) / (room.puzzles?.length || 1)) *
+                          100
+                        : 0
+                    }%`,
                   }}
                 ></div>
               </div>
@@ -169,68 +182,64 @@ export default function RoomView() {
               </div>
 
               <div className="puzzle-content">
-                {selectedPuzzle && (
-                  <PuzzleView puzzle={selectedPuzzle} userId={userId} />
-                )}
+                {selectedPuzzle && <PuzzleView puzzle={selectedPuzzle} userId={userId} />}
               </div>
             </div>
           </>
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function PuzzleView({ puzzle, userId }) {
-  const [flag, setFlag] = useState('')
-  const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [purchasedClues, setPurchasedClues] = useState([])
+  const [flag, setFlag] = useState('');
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [purchasedClues, setPurchasedClues] = useState([]);
 
   // Mutations
-  const submitFlag = useMutation(api.game.submitFlag)
-  const buyClue = useMutation(api.game.buyClue)
+  const submitFlag = useMutation(api.game.submitFlag);
+  const buyClue = useMutation(api.game.buyClue);
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setMessage('')
-    setLoading(true)
+    e.preventDefault();
+    setMessage('');
+    setLoading(true);
 
     if (!userId) {
-      setMessage('Please log in first')
-      setLoading(false)
-      return
+      toast.error('Please log in first');
+      setLoading(false);
+      return;
     }
 
     try {
-      const result = await submitFlag({ userId, puzzleId: puzzle._id, flag })
-      setMessage(result.message)
-      setFlag('')
+      const result = await submitFlag({ userId, puzzleId: puzzle._id, flag });
+      toast.success(result.message);
+      setFlag('');
     } catch (error) {
-      if (error?.message === 'Puzzle already solved') {
-        setMessage('You have already solved this puzzle!')
-      } else {
-        setMessage(error?.message || 'Submission failed')
-      }
+      const errorMessage = error?.message?.split('\n')[0] || 'Submission failed';
+      toast.error(errorMessage);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleBuyClue = async (clueId) => {
     if (!userId) {
-      alert('Please log in first')
-      return
+      toast.error('Please log in first');
+      return;
     }
 
     try {
-      const result = await buyClue({ userId, clueId })
-      alert(result.message || 'Clue purchased!')
-      setPurchasedClues([...purchasedClues, clueId])
+      const result = await buyClue({ userId, clueId });
+      toast.success(result.message || 'Clue purchased!');
+      setPurchasedClues([...purchasedClues, clueId]);
     } catch (error) {
-      alert(error?.message || 'Failed to buy clue')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to buy clue';
+      toast.error(errorMessage);
     }
-  }
+  };
 
   return (
     <div className="card puzzle-view">
@@ -243,7 +252,7 @@ function PuzzleView({ puzzle, userId }) {
           <span className="points-display">{puzzle.pointsReward} POINTS</span>
         </div>
       </div>
-      
+
       <div className="puzzle-description">
         <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{puzzle.description}</p>
       </div>
@@ -275,7 +284,7 @@ function PuzzleView({ puzzle, userId }) {
           <h3 className="clues-title">AVAILABLE CLUES</h3>
           <div className="clues-list">
             {puzzle.clues.map((clue) => {
-              const isPurchased = purchasedClues.includes(clue._id)
+              const isPurchased = purchasedClues.includes(clue._id);
               return (
                 <div key={clue._id} className={`clue-item ${isPurchased ? 'purchased' : 'available'}`}>
                   {isPurchased ? (
@@ -285,20 +294,17 @@ function PuzzleView({ puzzle, userId }) {
                   ) : (
                     <div className="clue-purchase">
                       <p className="clue-cost">CLUE COST: {clue.cost} POINTS</p>
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => handleBuyClue(clue._id)}
-                      >
+                      <button className="btn btn-secondary" onClick={() => handleBuyClue(clue._id)}>
                         PURCHASE CLUE
                       </button>
                     </div>
                   )}
                 </div>
-              )
+              );
             })}
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

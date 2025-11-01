@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from 'convex/react'
+import toast from 'react-hot-toast'
 import { api } from '../../convex/_generated/api'
 import { useAuth } from '../context/AuthContext'
 
 export default function Onboarding() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { userId } = useAuth()
   const [mode, setMode] = useState('select') // 'select', 'create', 'join'
   const [formData, setFormData] = useState({
     teamName: '',
@@ -24,30 +25,34 @@ export default function Onboarding() {
     try {
       await createTeam({
         name: formData.teamName,
-        userId: user._id,
+        userId,
         capacity: parseInt(formData.teamCapacity)
-      })
-      navigate('/rules')
+      });
+      toast.success('Team created successfully!');
+      navigate('/rules');
     } catch (error) {
-      alert(error?.message || 'Failed to create team')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to create team';
+      toast.error(errorMessage);
     }
   }
 
   const handleJoinTeam = async (e) => {
     e.preventDefault()
     if (!formData.selectedTeamId || !formData.inviteCode) {
-      alert('Please select a team and enter the invite code')
+      toast.error('Please select a team and enter the invite code')
       return
     }
     try {
-      await requestJoinTeam({ 
-        teamId: formData.selectedTeamId, 
-        userId: user._id,
+      await requestJoinTeam({
+        userId,
+        teamId: formData.selectedTeamId,
         inviteCode: formData.inviteCode
-      })
-      navigate('/rules')
+      });
+      toast.success('Successfully requested to join team!');
+      navigate('/rules');
     } catch (error) {
-      alert(error?.message || 'Failed to join team')
+      const errorMessage = error?.message?.split('\n')[0] || 'Failed to join team';
+      toast.error(errorMessage);
     }
   }
 
