@@ -54,7 +54,7 @@ export default function Login() {
             />
           </div>
 
-          {error && <div className="error">{error}</div>}
+          {error && <div style={{ textAlign: 'center' }} className="error">Invalid credentials!</div>}
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}

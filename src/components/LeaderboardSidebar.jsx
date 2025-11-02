@@ -79,7 +79,7 @@ export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTe
         style={{
           position: 'fixed',
           right: isOpen ? '350px' : '0',
-          top: '50%',
+          top: '70%',
           transform: 'translateY(-50%)',
           background: 'linear-gradient(135deg, #0ff, #00a8a8)',
           border: 'none',

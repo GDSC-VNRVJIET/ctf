@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
+import { Doc, Id } from "./_generated/dataModel";
 
 // Helper to hash flags
 async function hashFlag(flag: string): Promise<string> {
@@ -72,6 +73,27 @@ async function isCaptain(ctx: any, userId: string, teamId: string): Promise<bool
   return membership && membership.role === "captain";
 }
 
+const getTeamName = async (ctx: any, teamId: Id<"teams">): Promise<string> => {
+  const team = await ctx.db.get(teamId);
+  return team?.name ?? "Unknown Team";
+};
+
+// Define the structure of a single notification object
+interface Notification {
+  actionType: string;
+  createdAt: number;
+  cost: number;
+  // Common for Invest
+  teamId?: Id<"teams">;
+  // Common for Attack/Defend
+  targetTeamId?: Id<"teams">;
+  targetTeamName?: string;
+  teamName?: string;
+  // Specific notification message field
+  notificationType: "Invested" | "Attacked" | "BeingAttacked" | "Defended" | "AttackDefended";
+  cooldownUntil?: number;
+}
+
 // Queries
 export const getRooms = query({
   args: { userId: v.id("users") },
@@ -84,6 +106,138 @@ export const getRooms = query({
     return rooms.sort((a, b) => a.orderIndex - b.orderIndex);
   },
 });
+
+export const getNotifications = query({
+  args: { teamId: v.id("teams") },
+  handler: async (ctx, args) => {
+    const { teamId } = args;
+
+    // 1. Fetch all relevant actions for the given teamId
+    // We need actions where the team is the initiator (teamId) OR the target (targetTeamId)
+    
+    // Actions where the team is the initiator
+    const initiatedActions = await ctx.db
+      .query("actions")
+      .withIndex("by_team", (q) => q.eq("teamId", teamId))
+      .collect();
+
+    // Actions where the team is the target, and filter out duplicates if possible
+    // Note: We'll filter for duplicates later, as fetching is easier this way.
+    const targetedActions = await ctx.db
+      .query("actions")
+      .withIndex("by_target", (q) => q.eq("targetTeamId", teamId))
+      .collect();
+
+    // Combine and de-duplicate the actions
+    const allActionsMap = new Map<Id<"actions">, Doc<"actions">>();
+    [...initiatedActions, ...targetedActions].forEach(action => {
+        allActionsMap.set(action._id, action);
+    });
+    const allActions = Array.from(allActionsMap.values());
+
+    // 2. Process and map actions to the required notification format
+    const notifications: Notification[] = [];
+
+    for (const action of allActions) {
+      const isInitiator = action.teamId === teamId;
+
+      const baseNotification: Partial<Notification> = {
+        actionType: action.actionType,
+        createdAt: action.createdAt,
+        cost: action.cost,
+      };
+      
+      let notification: Notification | null = null;
+
+      // --- 1. 'invest' Actions ---
+      if (action.actionType === 'invest') {
+        // Only the initiator team's ID is present in 'teamId' for 'invest'
+        if (isInitiator) {
+          notification = {
+            ...baseNotification,
+            teamId: action.teamId,
+            teamName: await getTeamName(ctx, action.teamId),
+            notificationType: "Invested",
+          } as Notification;
+        }
+      } 
+      
+      // --- 2. 'attack' Actions ---
+      else if (action.actionType === 'attack') {
+        const otherTeamId = isInitiator ? action.targetTeamId : action.teamId;
+        const otherTeamName = otherTeamId ? await getTeamName(ctx, otherTeamId) : "Unknown Target";
+        
+        if (isInitiator) {
+          // Team is attacking
+          notification = {
+            ...baseNotification,
+            teamId: action.teamId,
+            teamName: await getTeamName(ctx, action.teamId),
+            targetTeamId: action.targetTeamId,
+            targetTeamName: otherTeamName,
+            notificationType: "Attacked",
+            cooldownUntil: action.cooldownUntil,
+          } as Notification;
+        } else {
+          // Team is being attacked
+          notification = {
+            ...baseNotification,
+            teamId: action.teamId,
+            teamName: otherTeamName, // Attacking team's name
+            targetTeamId: action.targetTeamId,
+            targetTeamName: await getTeamName(ctx, teamId), // Our team's name
+            notificationType: "BeingAttacked",
+            cooldownUntil: action.cooldownUntil,
+          } as Notification;
+        }
+      } 
+      
+      // --- 3. 'defend' Actions ---
+      else if (action.actionType === 'defend') {
+        const otherTeamId = isInitiator ? action.targetTeamId : action.teamId;
+        const otherTeamName = otherTeamId ? await getTeamName(ctx, otherTeamId) : "Unknown Team";
+
+        if (isInitiator) {
+          // Team is defending another team's attack
+          notification = {
+            ...baseNotification,
+            teamId: action.teamId,
+            teamName: await getTeamName(ctx, action.teamId),
+            targetTeamId: action.targetTeamId,
+            targetTeamName: otherTeamName,
+            notificationType: "Defended",
+            cooldownUntil: action.cooldownUntil,
+          } as Notification;
+        } else {
+          // Team's attack was defended (targetTeamId matches)
+          notification = {
+            ...baseNotification,
+            teamId: action.teamId,
+            teamName: otherTeamName, // Defending team's name
+            targetTeamId: action.targetTeamId,
+            targetTeamName: await getTeamName(ctx, teamId), // Our team's name
+            notificationType: "AttackDefended",
+            cooldownUntil: action.cooldownUntil,
+          } as Notification;
+        }
+      }
+
+      if (notification) {
+        notifications.push(notification);
+      }
+    }
+    notifications.sort((a, b) => b.createdAt - a.createdAt);
+
+    return notifications;
+  },
+});
+
+export const getTeam = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return await getUserTeam(ctx, args.userId);
+  }
+})
 
 export const getRoom = query({
   args: { userId: v.id("users"), roomId: v.id("rooms") },
@@ -461,6 +615,24 @@ export const buyClue = mutation({
     return { message: "Clue purchased", clueText: clue.text };
   },
 });
+
+export const dummyAction = mutation({
+  args: {
+    teamId: v.id("teams")
+  },
+  handler: async (ctx, args) => {
+    const actionId = await ctx.db.insert("actions", {
+        teamId: args.teamId,
+        actionType: "invest",
+        cost: 0,
+        resultJson: JSON.stringify({ invested: 0 }),
+        createdAt: Date.now(),
+        status: "pending",
+      });
+    
+    return actionId;
+  }
+})
 
 export const buyPerk = mutation({
   args: {

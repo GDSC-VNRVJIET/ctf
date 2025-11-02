@@ -311,6 +311,7 @@ function CreateTab() {
           <option value="room">Room</option>
           <option value="puzzle">Puzzle</option>
           <option value="clue">Clue</option>
+          <option value="clue">Perk</option>
         </select>
 
         {contentType === 'room' && <CreateRoomForm />}
