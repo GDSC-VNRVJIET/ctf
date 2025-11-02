@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 
 export default function NotificationsSidebar({ isOpen, onToggle, teamId }) {
-  if (teamId == 'skip') {
+  if (teamId === 'skip') {
     return (
       <>
         <button
@@ -65,7 +65,7 @@ export default function NotificationsSidebar({ isOpen, onToggle, teamId }) {
       </>
     )
   }
-  
+    
   const notifications = useQuery(api.game.getNotifications, { teamId });
   const styles = {
     invest: { 

@@ -14,8 +14,6 @@ export default function MainLayout({ children }) {
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
   const leaderboard = useQuery(api.game.getLeaderboard)
 
-  useEffect(() => console.log(team), []);
-
   return (
     <div className="main-layout">
       <Navbar />
