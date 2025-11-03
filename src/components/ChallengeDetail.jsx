@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from 'convex/react';
+import { FaRegLightbulb } from "react-icons/fa";
+import { TbBook } from "react-icons/tb";
+import { SlNotebook } from "react-icons/sl";
 import { api } from '../../convex/_generated/api';
 import toast from 'react-hot-toast';
 
@@ -166,7 +169,7 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
               fontSize: '14px',
               color: '#aaa'
             }}>
-              📚 {challenge.topic}
+              <SlNotebook style={{fontSize:"1.3rem"}} /> {challenge.topic}
             </span>
           )}
           <span style={{
@@ -191,7 +194,7 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
           marginBottom: '24px'
         }}>
           <h3 style={{ color: '#0ff', marginBottom: '12px', fontSize: '18px' }}>
-            📝 Challenge Description
+            <TbBook style={{ fontSize: '1.5rem', marginRight: '8px' }} /> Challenge Description
           </h3>
           <div style={{
             color: '#fff',
@@ -214,7 +217,7 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
             marginBottom: '24px'
           }}>
             <h3 style={{ color: '#ff0', marginBottom: '12px', fontSize: '18px' }}>
-              💡 Available Clues
+              <FaRegLightbulb style={{ fontSize: '1.5rem', marginRight: '8px' }} /> Available Clues
             </h3>
             {clues.map((clue, index) => (
               <div
@@ -247,7 +250,7 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
                     color: clue.isPurchased ? '#0f0' : clue.canPurchase ? '#ff0' : '#888',
                     fontWeight: 'bold'
                   }}>
-                    💡 Clue {index + 1}
+                    <FaRegLightbulb style={{ fontSize: '1.5rem', marginRight: '8px' }} /> Clue {index + 1}
                     {clue.isPurchased && ' ✅'}
                     {!clue.isPurchased && !clue.canPurchase && ' 🔒'}
                   </span>

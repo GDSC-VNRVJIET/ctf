@@ -74,7 +74,7 @@ function PasswordProtection({ children }) {
           </form>
 
           <div className="password-protection-footer">
-            <p>🛡️ This application requires a password to access.</p>
+            <p> This application requires a password to access.</p>
           </div>
         </div>
       </div>

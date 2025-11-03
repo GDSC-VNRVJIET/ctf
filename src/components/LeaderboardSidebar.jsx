@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { MdOutlineLeaderboard } from "react-icons/md";
 import toast from 'react-hot-toast';
 
 export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTeam, userId }) {
@@ -126,7 +127,7 @@ export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTe
           borderBottom: '2px solid #0ff',
           paddingBottom: '10px'
         }}>
-          🏆 LEADERBOARD
+          <MdOutlineLeaderboard /> LEADERBOARD
         </h2>
 
         {/* Shield Button */}
