@@ -280,18 +280,21 @@ export const getRoom = query({
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 
-    // Get clues for each puzzle
-    const puzzlesWithClues = await Promise.all(
-      puzzles.map(async (puzzle) => {
-        const clues = await ctx.db
-          .query("clues")
-          .withIndex("by_puzzle", (q) => q.eq("puzzleId", puzzle._id))
-          .collect();
-        return { ...puzzle, clues: clues.sort((a, b) => a.orderIndex - b.orderIndex) };
-      })
-    );
+    // Get solved puzzle IDs for this team
+    const solvedSubmissions = await ctx.db
+      .query("submissions")
+      .withIndex("by_team_and_correct", (q) => 
+        q.eq("teamId", team._id).eq("isCorrect", true)
+      )
+      .collect();
+    
+    const solvedPuzzleIds = solvedSubmissions.map(sub => sub.puzzleId);
 
-    return { ...room, puzzles: puzzlesWithClues };
+    return { 
+      ...room, 
+      puzzles,
+      solvedPuzzleIds 
+    };
   },
 });
 
@@ -383,6 +386,42 @@ export const getCluesByPuzzle = query({
       .withIndex("by_puzzle", (q) => q.eq("puzzleId", args.puzzleId))
       .order("asc")
       .collect();
+  },
+});
+
+export const getPurchasedClues = query({
+  args: { 
+    userId: v.id("users"),
+    puzzleId: v.id("puzzles") 
+  },
+  handler: async (ctx, args) => {
+    const team = await getUserTeam(ctx, args.userId);
+    
+    const allClues = await ctx.db
+      .query("clues")
+      .withIndex("by_puzzle", (q) => q.eq("puzzleId", args.puzzleId))
+      .order("asc")
+      .collect();
+
+    const purchases = await ctx.db
+      .query("purchases")
+      .withIndex("by_team", (q) => q.eq("teamId", team._id))
+      .filter((q) => q.neq(q.field("clueId"), undefined))
+      .collect();
+
+    const purchasedClueIds = new Set(purchases.map(p => p.clueId));
+
+    return allClues.map((clue, index) => {
+      const isPurchased = purchasedClueIds.has(clue._id);
+      const canPurchase = index === 0 || (index > 0 && purchasedClueIds.has(allClues[index - 1]._id));
+      
+      return {
+        ...clue,
+        isPurchased,
+        canPurchase: !isPurchased && canPurchase,
+        text: isPurchased ? clue.text : undefined 
+      };
+    });
   },
 });
 
@@ -594,6 +633,30 @@ export const buyClue = mutation({
 
     if (existing) {
       throw new ConvexError("Clue already purchased");
+    }
+
+    // Check sequential purchase requirement
+    const allCluesForPuzzle = await ctx.db
+      .query("clues")
+      .withIndex("by_puzzle", (q) => q.eq("puzzleId", clue.puzzleId))
+      .order("asc")
+      .collect();
+
+    const currentClueIndex = allCluesForPuzzle.findIndex(c => c._id === args.clueId);
+    
+    if (currentClueIndex > 0) {
+      // Check if previous clue is purchased
+      const previousClue = allCluesForPuzzle[currentClueIndex - 1];
+      const previousPurchase = await ctx.db
+        .query("purchases")
+        .withIndex("by_team_and_clue", (q) => 
+          q.eq("teamId", team._id).eq("clueId", previousClue._id)
+        )
+        .first();
+
+      if (!previousPurchase) {
+        throw new ConvexError("You must purchase clues in order. Buy the previous clue first.");
+      }
     }
 
     // Check balance

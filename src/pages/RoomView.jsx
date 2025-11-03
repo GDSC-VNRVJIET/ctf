@@ -54,7 +54,7 @@ export default function RoomView() {
           'Private documents, encrypted drives, classified information. Everything is here. But getting out alive is another matter.',
       },
     };
-    
+
     // If room has a custom brief, use it
     if (room?.brief) {
       return {
@@ -63,7 +63,7 @@ export default function RoomView() {
         story: room.brief,
       };
     }
-    
+
     // Otherwise fall back to defaults
     return defaultIntros[room?.name] || {
       title: 'UNKNOWN TERRITORY',
@@ -88,7 +88,7 @@ export default function RoomView() {
 
   const loading = room === undefined || team === undefined;
   if (loading) return <div className="loading">Loading...</div>;
-  
+
   // Handle room access errors (Room not found or not unlocked)
   if (!room) {
     toast.error('This room is not accessible. Complete previous rooms first!');
@@ -191,117 +191,4 @@ export default function RoomView() {
   );
 }
 
-function PuzzleView({ puzzle, userId }) {
-  const [flag, setFlag] = useState('');
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [purchasedClues, setPurchasedClues] = useState([]);
 
-  // Mutations
-  const submitFlag = useMutation(api.game.submitFlag);
-  const buyClue = useMutation(api.game.buyClue);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage('');
-    setLoading(true);
-
-    if (!userId) {
-      toast.error('Please log in first');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const result = await submitFlag({ userId, puzzleId: puzzle._id, flag });
-      toast.success(result.message);
-      setFlag('');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Submission failed'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBuyClue = async (clueId) => {
-    if (!userId) {
-      toast.error('Please log in first');
-      return;
-    }
-
-    try {
-      const result = await buyClue({ userId, clueId });
-      toast.success(result.message || 'Clue purchased!');
-      setPurchasedClues([...purchasedClues, clueId]);
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to buy clue'));
-    }
-  };
-
-  return (
-    <div className="card puzzle-view">
-      <div className="puzzle-header-section">
-        <div className="puzzle-title-section">
-          <span className="room-question-badge">ROOM QUESTION</span>
-          <h2 className="puzzle-title">{puzzle.title}</h2>
-        </div>
-        <div className="puzzle-reward">
-          <span className="points-display">{puzzle.pointsReward} POINTS</span>
-        </div>
-      </div>
-
-      <div className="puzzle-description">
-        <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{puzzle.description}</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="flag-submission">
-        <div className="form-group">
-          <label className="flag-label">FLAG SUBMISSION</label>
-          <input
-            type="text"
-            value={flag}
-            onChange={(e) => setFlag(e.target.value)}
-            placeholder="Enter flag{...}"
-            className="flag-input"
-            required
-          />
-        </div>
-        {message && (
-          <div className={`submission-result ${message.includes('Correct') ? 'success' : 'error'}`}>
-            {message}
-          </div>
-        )}
-        <button type="submit" className="btn btn-primary flag-submit" disabled={loading}>
-          {loading ? 'PROCESSING...' : 'SUBMIT FLAG'}
-        </button>
-      </form>
-
-      {puzzle.clues?.length > 0 && (
-        <div className="clues-section">
-          <h3 className="clues-title">AVAILABLE CLUES</h3>
-          <div className="clues-list">
-            {puzzle.clues.map((clue) => {
-              const isPurchased = purchasedClues.includes(clue._id);
-              return (
-                <div key={clue._id} className={`clue-item ${isPurchased ? 'purchased' : 'available'}`}>
-                  {isPurchased ? (
-                    <div className="clue-content">
-                      <p>{clue.text}</p>
-                    </div>
-                  ) : (
-                    <div className="clue-purchase">
-                      <p className="clue-cost">CLUE COST: {clue.cost} POINTS</p>
-                      <button className="btn btn-secondary" onClick={() => handleBuyClue(clue._id)}>
-                        PURCHASE CLUE
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
