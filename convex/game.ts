@@ -262,15 +262,22 @@ export const getRoom = query({
     }
 
     // Check if team has unlocked this room
-    if (team.currentRoomId) {
-      const currentRoom = await ctx.db.get(team.currentRoomId);
-      if (currentRoom && "orderIndex" in currentRoom && room.orderIndex > currentRoom.orderIndex) {
-        throw new ConvexError("Room not unlocked yet");
-      }
-    } else {
-      if (room.orderIndex > 1) {
-        throw new ConvexError("Room not unlocked yet");
-      }
+    // Room is accessible if:
+    // 1. It's room 1 (always unlocked) OR
+    // 2. Team has progressed to this room OR  
+    // 3. Team has enough points to unlock it
+    const hasEnoughPoints = team.pointsBalance >= room.unlockCost;
+    const hasProgressedToRoom = team.currentRoomId ? 
+      (async () => {
+        const currentRoom = await ctx.db.get(team.currentRoomId);
+        return currentRoom && "orderIndex" in currentRoom && room.orderIndex <= currentRoom.orderIndex;
+      })() : Promise.resolve(false);
+
+    const isRoom1 = room.orderIndex === 1;
+    const canAccess = isRoom1 || hasEnoughPoints || await hasProgressedToRoom;
+
+    if (!canAccess) {
+      throw new ConvexError("Room not unlocked yet");
     }
 
     // Get puzzles for this room
@@ -480,12 +487,22 @@ export const submitFlag = mutation({
       throw new ConvexError("Room not found");
     }
 
-    if (team.currentRoomId) {
-      const currentRoom = await ctx.db.get(team.currentRoomId);
-      if (currentRoom && "orderIndex" in currentRoom && room.orderIndex > currentRoom.orderIndex) {
-        throw new ConvexError("Room not unlocked yet");
-      }
-    } else if (room.orderIndex > 1) {
+    // Check if team has unlocked this puzzle's room
+    // Room is accessible if:
+    // 1. It's room 1 (always unlocked) OR
+    // 2. Team has progressed to this room OR  
+    // 3. Team has enough points to unlock it
+    const hasEnoughPoints = team.pointsBalance >= room.unlockCost;
+    const hasProgressedToRoom = team.currentRoomId ? 
+      (async () => {
+        const currentRoom = await ctx.db.get(team.currentRoomId);
+        return currentRoom && "orderIndex" in currentRoom && room.orderIndex <= currentRoom.orderIndex;
+      })() : Promise.resolve(false);
+
+    const isRoom1 = room.orderIndex === 1;
+    const canAccess = isRoom1 || hasEnoughPoints || await hasProgressedToRoom;
+
+    if (!canAccess) {
       throw new ConvexError("Room not unlocked yet");
     }
 
@@ -1060,6 +1077,83 @@ export const startChallengeAttempt = mutation({
       investment,
       message: "Challenge started! Timer is running.",
     };
+  },
+});
+
+export const accessRoom = mutation({
+  args: {
+    userId: v.id("users"),
+    roomId: v.id("rooms"),
+  },
+  handler: async (ctx, args) => {
+    const team = await getUserTeam(ctx, args.userId);
+    const room = await ctx.db.get(args.roomId);
+
+    if (!room) {
+      throw new ConvexError("Room not found");
+    }
+
+    // Check if team can access this room
+    const hasEnoughPoints = team.pointsBalance >= room.unlockCost;
+    const hasProgressedToRoom = team.currentRoomId ? 
+      (async () => {
+        const currentRoom = await ctx.db.get(team.currentRoomId);
+        return currentRoom && "orderIndex" in currentRoom && room.orderIndex <= currentRoom.orderIndex;
+      })() : Promise.resolve(false);
+
+    const isRoom1 = room.orderIndex === 1;
+    const canAccess = isRoom1 || hasEnoughPoints || await hasProgressedToRoom;
+
+    if (!canAccess) {
+      throw new ConvexError("Room not accessible");
+    }
+
+    // Update currentRoomId if this room is higher than current
+    let updateData: any = {};
+    let shouldUpdate = false;
+
+    if (!team.currentRoomId) {
+      // First room access
+      updateData.currentRoomId = args.roomId;
+      shouldUpdate = true;
+    } else {
+      const currentRoom = await ctx.db.get(team.currentRoomId);
+      if (currentRoom && "orderIndex" in currentRoom && room.orderIndex > currentRoom.orderIndex) {
+        // Accessing a higher room
+        updateData.currentRoomId = args.roomId;
+        shouldUpdate = true;
+      }
+    }
+
+    // Update highestRoomId if this room is higher than current highest
+    if (!team.highestRoomId) {
+      updateData.highestRoomId = args.roomId;
+      shouldUpdate = true;
+    } else {
+      const currentHighest = await ctx.db.get(team.highestRoomId);
+      if (currentHighest && "orderIndex" in currentHighest && room.orderIndex > currentHighest.orderIndex) {
+        updateData.highestRoomId = args.roomId;
+        shouldUpdate = true;
+      }
+    }
+
+    if (shouldUpdate) {
+      await ctx.db.patch(team._id, updateData);
+
+      // Log room access
+      await ctx.db.insert("auditLogs", {
+        userId: args.userId,
+        action: "access_room",
+        detailsJson: JSON.stringify({
+          teamId: team._id,
+          roomId: args.roomId,
+          roomName: room.name,
+        }),
+        createdAt: Date.now(),
+      });
+    }
+
+    return { message: `Accessed ${room.name}` };
   },
 });
 

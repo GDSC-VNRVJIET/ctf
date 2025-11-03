@@ -19,8 +19,15 @@ export default function RoomView() {
   const room = useQuery(api.game.getRoom, userId && roomId ? { userId, roomId } : 'skip');
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : 'skip');
 
-  // Mutation for unlocking room
-  const unlockRoom = useMutation(api.game.unlockRoom);
+  // Mutations
+  const accessRoom = useMutation(api.game.accessRoom);
+
+  useEffect(() => {
+    if (room && userId && roomId) {
+      accessRoom({ userId, roomId }).catch(() => {
+      });
+    }
+  }, [room?._id, userId, roomId, accessRoom]);
 
   // Select first puzzle when room loads successfully
   useEffect(() => {
@@ -72,19 +79,7 @@ export default function RoomView() {
     };
   };
 
-  const handleUnlockRoom = async () => {
-    if (!userId) {
-      toast.error('Please log in first');
-      return;
-    }
 
-    try {
-      await unlockRoom({ userId, roomId });
-      toast.success('Room unlocked!');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to unlock room'));
-    }
-  };
 
   const loading = room === undefined || team === undefined;
   if (loading) return <div className="loading">Loading...</div>;
@@ -96,10 +91,9 @@ export default function RoomView() {
     return null;
   }
 
-  const canAccess = !team?.currentRoomId || team.currentRoomId === roomId;
   const roomIntro = getRoomIntro(room);
 
-  if (showIntro && canAccess) {
+  if (showIntro) {
     return (
       <div className="modal-overlay" onClick={() => setShowIntro(false)}>
         <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -144,48 +138,36 @@ export default function RoomView() {
           </div>
         </div>
 
-        {!canAccess && (
-          <div className="card room-locked">
-            <h3>Access Required</h3>
-            <p>You need to unlock this room first.</p>
-            <button className="btn btn-primary" onClick={handleUnlockRoom}>
-              Unlock Room ({room.unlockCost} points)
-            </button>
-          </div>
-        )}
-
-        {canAccess && (
-          <div className="card">
-            {viewMode === 'grid' ? (
-              <>
-                <div style={{ marginBottom: '20px' }}>
-                  <h2 style={{ color: '#0ff', marginBottom: '8px' }}>Challenges</h2>
-                  <p style={{ color: '#aaa' }}>Select a challenge to view details and submit your solution</p>
-                </div>
-                <ChallengeGrid
-                  challenges={room.puzzles || []}
-                  onSelect={(challenge) => {
-                    setSelectedPuzzle(challenge);
-                    setViewMode('detail');
-                  }}
-                  solvedChallengeIds={room.solvedPuzzleIds || []}
-                />
-              </>
-            ) : (
-              selectedPuzzle && (
-                <ChallengeDetail
-                  challenge={selectedPuzzle}
-                  onBack={() => {
-                    setViewMode('grid');
-                    setSelectedPuzzle(null);
-                  }}
-                  userId={userId}
-                  team={team}
-                />
-              )
-            )}
-          </div>
-        )}
+        <div className="card">
+          {viewMode === 'grid' ? (
+            <>
+              <div style={{ marginBottom: '20px' }}>
+                <h2 style={{ color: '#0ff', marginBottom: '8px' }}>Challenges</h2>
+                <p style={{ color: '#aaa' }}>Select a challenge to view details and submit your solution</p>
+              </div>
+              <ChallengeGrid
+                challenges={room.puzzles || []}
+                onSelect={(challenge) => {
+                  setSelectedPuzzle(challenge);
+                  setViewMode('detail');
+                }}
+                solvedChallengeIds={room.solvedPuzzleIds || []}
+              />
+            </>
+          ) : (
+            selectedPuzzle && (
+              <ChallengeDetail
+                challenge={selectedPuzzle}
+                onBack={() => {
+                  setViewMode('grid');
+                  setSelectedPuzzle(null);
+                }}
+                userId={userId}
+                team={team}
+              />
+            )
+          )}
+        </div>
       </div>
     </div>
   );
