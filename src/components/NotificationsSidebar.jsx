@@ -66,7 +66,12 @@ export default function NotificationsSidebar({ isOpen, onToggle, teamId }) {
     )
   }
     
-  const notifications = useQuery(api.game.getNotifications, { teamId });
+  let notifications;
+  try {
+    notifications = useQuery(api.game.getNotifications, { teamId });
+  } catch (error) {
+    console.log(error);
+  }
   const styles = {
     invest: { 
       backgroundColor: 'lightblue',

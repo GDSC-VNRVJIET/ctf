@@ -20,7 +20,7 @@ export default function Shop() {
     }
 
     try {
-      const result = await buyPerk({ userId, perkId })
+      const result = await buyPerk({ userId, perkId, roomNumber })
       toast.success(result.message || 'Perk purchased successfully!')
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to purchase perk'))
@@ -43,18 +43,20 @@ export default function Shop() {
         <div className="grid grid-3">
           {perks && perks.map((perk) => (
             <div key={perk._id} className="card">
-              <h3>{perk.name}</h3>
-              <p style={{ margin: '12px 0', color: '#666', minHeight: '60px' }}>
+              <h3>{perk.name.split("/")[0]}</h3>
+              <p style={{ margin: '12px 0', marginRight: '8px', color: '#666', minHeight: '60px' }}>
                 {perk.description}
               </p>
               <div style={{ marginBottom: '12px' }}>
-                <span className="badge badge-warning">{perk.cost} points</span>
+                <span className="badge badge-warning">
+                  {perk.cost == '1' ? roomNumber * 15 : (perk.cost == '2' ? roomNumber * 50 : perk.cost)} points
+                </span>
                 {perk.isOneTime && (
-                  <span className="badge badge-info" style={{ marginLeft: '8px' }}>
+                  <span className="badge badge-info" style={{ marginRight: '8px' }}>
                     One-time
                   </span>
                 )}
-                <span className={`badge badge-${perk.perkType === 'attack' ? 'danger' : perk.perkType === 'defense' ? 'success' : 'info'}`} style={{ marginLeft: '8px' }}>
+                <span className={`badge badge-${perk.perkType === 'attack' ? 'danger' : perk.perkType === 'defense' ? 'success' : 'info'}`} style={{ marginRight: '8px' }}>
                   {perk.perkType}
                 </span>
               </div>
