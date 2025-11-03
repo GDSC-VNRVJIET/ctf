@@ -116,17 +116,17 @@ export async function hashFlag(flag: string): Promise<string> {
 /**
  * Validate flag format to prevent injection attacks
  */
-export function validateFlagFormat(flag: string): boolean {
-  if (!flag || flag.length > 500) return false;
+// export function validateFlagFormat(flag: string): boolean {
+//   if (!flag || flag.length > 500) return false;
   
-  // Allow alphanumeric, underscores, hyphens, braces only
-  const pattern = /^[A-Za-z0-9_\-{}\[\]@:.]+$/;
+//   // Allow alphanumeric, underscores, hyphens, braces only
+//   const pattern = /^[A-Za-z0-9_\-{}\[\]@:.]+$/;
   
-  // Check for suspicious patterns
-  if (/['\";<>&|]/.test(flag)) return false;
+//   // Check for suspicious patterns
+//   if (/['\";<>&|]/.test(flag)) return false;
   
-  return pattern.test(flag);
-}
+//   return pattern.test(flag);
+// }
 
 /**
  * Generate a random invite code
