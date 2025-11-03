@@ -107,9 +107,9 @@ export default function Dashboard() {
                 <Link to="/team" className="btn btn-secondary" style={{ marginRight: '8px' }}>
                   Team Details
                 </Link>
-                <Link to="/shop" className="btn btn-primary" style={{ marginRight: '8px' }}>
+                {/* <Link to="/shop" className="btn btn-primary" style={{ marginRight: '8px' }}>
                   Shop
-                </Link>
+                </Link> */}
                 {team.captainUserId !== user.id && (
                   <button
                     className="btn btn-warning"
@@ -125,8 +125,8 @@ export default function Dashboard() {
               <h2>Mission Rooms</h2>
               <div style={{ marginTop: '24px' }}>
                 {rooms.map((room, index) => {
-                  // Room 0 is always unlocked at start; others depend on progression
-                  const isUnlocked = index === 0 || currentRoomIndex >= index;
+                  const hasEnoughPoints = team.pointsBalance >= room.unlockCost;
+                  const isUnlocked = index === 0 || currentRoomIndex >= index || hasEnoughPoints;
                   const isNext = index === currentRoomIndex + 1 || (currentRoomIndex === -1 && index === 1);
                   const isAccessible = isUnlocked; // Only unlocked rooms are clickable
                   

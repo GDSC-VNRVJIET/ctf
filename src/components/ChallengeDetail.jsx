@@ -6,16 +6,24 @@ import toast from 'react-hot-toast';
 export default function ChallengeDetail({ challenge, onBack, userId, team }) {
   const [flag, setFlag] = useState('');
   const [timeRemaining, setTimeRemaining] = useState('');
-  
+
   const submitFlag = useMutation(api.game.submitFlag);
   const startChallengeAttempt = useMutation(api.game.startChallengeAttempt);
+  const buyClue = useMutation(api.game.buyClue);
   const activeAttempt = useQuery(
     api.game.getActiveChallengeAttempt,
     userId && challenge.isChallenge ? { userId, challengeId: challenge._id } : "skip"
   );
-  
-  // Fetch clues for this challenge
-  const clues = useQuery(api.game.getCluesByPuzzle, { puzzleId: challenge._id });
+
+  const clues = useQuery(
+    api.game.getPurchasedClues,
+    userId ? { userId, puzzleId: challenge._id } : "skip"
+  );
+
+  const submissionStatus = useQuery(
+    api.game.getSubmissionStatus,
+    userId && team ? { userId, puzzleId: challenge._id } : "skip"
+  );
 
   // Timer effect
   useEffect(() => {
@@ -27,7 +35,7 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
     const updateTimer = () => {
       const now = Date.now();
       const remaining = activeAttempt.endsAt - now;
-      
+
       if (remaining <= 0) {
         setTimeRemaining('⏰ EXPIRED');
         return;
@@ -45,7 +53,7 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
 
   const handleStartChallenge = async () => {
     const investment = Math.floor(challenge.pointsReward * 0.5);
-    
+
     if (!confirm(`Start challenge? This will cost ${investment} points as investment.`)) {
       return;
     }
@@ -71,7 +79,7 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
         puzzleId: challenge._id,
         flag: flag.trim(),
       });
-      
+
       if (result.message.includes('Correct')) {
         toast.success(`${result.message} +${result.pointsAwarded} points!`);
         setFlag('');
@@ -81,6 +89,15 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
       }
     } catch (error) {
       toast.error(error?.data || error?.message || 'Submission failed');
+    }
+  };
+
+  const handleBuyClue = async (clueId) => {
+    try {
+      const result = await buyClue({ userId, clueId });
+      toast.success(result.message || 'Clue purchased!');
+    } catch (error) {
+      toast.error(error?.data || error?.message || 'Failed to buy clue');
     }
   };
 
@@ -118,9 +135,25 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
         <h2 style={{
           color: colors.border,
           marginBottom: '16px',
-          textShadow: `0 0 10px ${colors.border}50`
+          textShadow: `0 0 10px ${colors.border}50`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
         }}>
           {challenge.title}
+          {submissionStatus?.isAlreadySolved && (
+            <span style={{
+              background: 'linear-gradient(135deg, #0f0, #00aa00)',
+              color: '#000',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              boxShadow: '0 0 10px rgba(0, 255, 0, 0.5)'
+            }}>
+              SOLVED
+            </span>
+          )}
         </h2>
 
         {/* Topic & Difficulty */}
@@ -187,29 +220,85 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
               <div
                 key={clue._id}
                 style={{
-                  background: 'rgba(255, 255, 0, 0.1)',
-                  border: '1px solid rgba(255, 255, 0, 0.3)',
+                  background: clue.isPurchased
+                    ? 'rgba(0, 255, 0, 0.1)'
+                    : clue.canPurchase
+                      ? 'rgba(255, 255, 0, 0.1)'
+                      : 'rgba(128, 128, 128, 0.1)',
+                  border: `1px solid ${clue.isPurchased
+                    ? 'rgba(0, 255, 0, 0.3)'
+                    : clue.canPurchase
+                      ? 'rgba(255, 255, 0, 0.3)'
+                      : 'rgba(128, 128, 128, 0.3)'
+                    }`,
                   borderRadius: '6px',
                   padding: '12px',
-                  marginBottom: '8px'
+                  marginBottom: '8px',
+                  opacity: clue.isPurchased || clue.canPurchase ? 1 : 0.6
                 }}
               >
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '8px'
+                  marginBottom: clue.isPurchased ? '8px' : '0px'
                 }}>
-                  <span style={{ color: '#ff0', fontWeight: 'bold' }}>
+                  <span style={{
+                    color: clue.isPurchased ? '#0f0' : clue.canPurchase ? '#ff0' : '#888',
+                    fontWeight: 'bold'
+                  }}>
                     💡 Clue {index + 1}
+                    {clue.isPurchased && ' ✅'}
+                    {!clue.isPurchased && !clue.canPurchase && ' 🔒'}
                   </span>
-                  <span style={{ color: '#ff0', fontSize: '14px' }}>
-                    {clue.cost} pts
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      color: clue.isPurchased ? '#0f0' : clue.canPurchase ? '#ff0' : '#888',
+                      fontSize: '14px'
+                    }}>
+                      {clue.cost} pts
+                    </span>
+                    {clue.canPurchase && (
+                      <button
+                        onClick={() => handleBuyClue(clue._id)}
+                        style={{
+                          background: 'linear-gradient(135deg, #ff0, #ffa500)',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          fontSize: '12px',
+                          color: '#000',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Buy
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div style={{ color: '#fff', fontSize: '14px', lineHeight: '1.6' }}>
-                  {clue.text}
-                </div>
+                {clue.isPurchased && clue.text && (
+                  <div style={{
+                    color: '#fff',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    background: 'rgba(0, 255, 0, 0.1)',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(0, 255, 0, 0.2)'
+                  }}>
+                    {clue.text}
+                  </div>
+                )}
+                {!clue.isPurchased && !clue.canPurchase && (
+                  <div style={{
+                    color: '#888',
+                    fontSize: '12px',
+                    fontStyle: 'italic'
+                  }}>
+                    Purchase previous clues first
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -324,7 +413,7 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
             <div style={{ fontSize: '14px', color: '#ff00ff', marginBottom: '8px' }}>
               ⚡ CHALLENGE MODE
             </div>
-            
+
             {activeAttempt ? (
               <>
                 <div style={{
@@ -349,7 +438,7 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
                   Timer: {challenge.challengeTimerMinutes || 10} minutes
                 </div>
                 <div style={{ fontSize: '16px', color: '#0f0', marginBottom: '16px', fontWeight: 'bold' }}>
-                  Reward: {challenge.pointsReward * (challenge.challengePointsMultiplier || 2)}pts 
+                  Reward: {challenge.pointsReward * (challenge.challengePointsMultiplier || 2)}pts
                   ({challenge.challengePointsMultiplier || 2}x)
                 </div>
                 <button
@@ -396,41 +485,94 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
 
         {/* Flag Submission */}
         <div style={{
-          background: 'rgba(0, 255, 255, 0.05)',
-          border: '2px solid #0ff',
+          background: submissionStatus?.isAlreadySolved
+            ? 'rgba(0, 255, 0, 0.05)'
+            : 'rgba(0, 255, 255, 0.05)',
+          border: submissionStatus?.isAlreadySolved
+            ? '2px solid #0f0'
+            : '2px solid #0ff',
           borderRadius: '12px',
           padding: '20px',
           flex: 1
         }}>
-          <h3 style={{ color: '#0ff', marginBottom: '16px' }}>Submit Flag</h3>
-          <form onSubmit={handleSubmit}>
-            <input
-              type="text"
-              value={flag}
-              onChange={(e) => setFlag(e.target.value)}
-              placeholder="Enter flag here..."
-              className="input"
-              style={{
-                width: '100%',
-                marginBottom: '16px',
-                fontFamily: 'monospace',
-                padding: '16px',
-                fontSize: '16px',
-                minHeight: '56px'
-              }}
-              disabled={challenge.isChallenge && !activeAttempt}
-            />
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%' }}
-              disabled={challenge.isChallenge && !activeAttempt}
-            >
-              {challenge.isChallenge && !activeAttempt ? 'Start Challenge First' : 'Submit Flag'}
-            </button>
-          </form>
+          <h3 style={{
+            color: submissionStatus?.isAlreadySolved ? '#0f0' : '#0ff',
+            marginBottom: '16px'
+          }}>
+            {submissionStatus?.isAlreadySolved ? 'Already Submitted' : 'Submit Flag'}
+          </h3>
 
-          {challenge.isChallenge && !activeAttempt && (
+          {submissionStatus?.isAlreadySolved ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '24px',
+              background: 'linear-gradient(135deg, rgba(0, 255, 0, 0.1), rgba(0, 200, 0, 0.05))',
+              border: '2px solid #0f0',
+              borderRadius: '12px',
+              color: '#0f0',
+              boxShadow: '0 0 20px rgba(0, 255, 0, 0.2)'
+            }}>
+              <div style={{
+                fontSize: '20px',
+                fontWeight: 'bold',
+                marginBottom: '8px',
+                textShadow: '0 0 5px rgba(0, 255, 0, 0.3)'
+              }}>
+                Challenge Solved!
+              </div>
+              <div style={{
+                fontSize: '14px',
+                opacity: 0.9,
+                marginBottom: '12px',
+                fontFamily: 'monospace'
+              }}>
+                Completed: {submissionStatus?.solvedAt ? new Date(submissionStatus.solvedAt).toLocaleDateString() + ' at ' + new Date(submissionStatus.solvedAt).toLocaleTimeString() : 'Unknown'}
+              </div>
+              <div style={{
+                background: 'rgba(0, 255, 0, 0.2)',
+                border: '1px solid #0f0',
+                borderRadius: '6px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                display: 'inline-block'
+              }}>
+                🎯 Points Earned: {challenge.isChallenge && challenge.challengePointsMultiplier
+                  ? `${challenge.pointsReward * challenge.challengePointsMultiplier}pts`
+                  : `${challenge.pointsReward}pts`
+                }
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <input
+                type="text"
+                value={flag}
+                onChange={(e) => setFlag(e.target.value)}
+                placeholder="Enter flag here..."
+                className="input"
+                style={{
+                  width: '100%',
+                  marginBottom: '16px',
+                  fontFamily: 'monospace',
+                  padding: '16px',
+                  fontSize: '16px',
+                  minHeight: '56px'
+                }}
+                disabled={challenge.isChallenge && !activeAttempt}
+              />
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+                disabled={challenge.isChallenge && !activeAttempt}
+              >
+                {challenge.isChallenge && !activeAttempt ? 'Start Challenge First' : 'Submit Flag'}
+              </button>
+            </form>
+          )}
+
+          {challenge.isChallenge && !activeAttempt && !submissionStatus?.isAlreadySolved && (
             <div style={{
               marginTop: '12px',
               padding: '12px',

@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 
 export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTeam, userId }) {
   const performAction = useMutation(api.game.performAction);
-  
+
   const handleAttack = async (targetTeamId) => {
     if (!userId) {
       toast.error('You must be logged in');
@@ -49,7 +49,7 @@ export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTe
 
   // Group teams by room tier
   const groupedTeams = {};
-  
+
   if (leaderboard) {
     leaderboard.forEach(team => {
       const tier = `Room ${team.highestRoomIndex || 0}`;
@@ -59,9 +59,9 @@ export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTe
       groupedTeams[tier].push(team);
     });
 
-    // Sort within each tier by score
+    // Sort within each tier by points
     Object.keys(groupedTeams).forEach(tier => {
-      groupedTeams[tier].sort((a, b) => (b.score || 0) - (a.score || 0));
+      groupedTeams[tier].sort((a, b) => (b.pointsBalance || 0) - (a.pointsBalance || 0));
     });
   }
 
@@ -189,12 +189,12 @@ export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTe
               {groupedTeams[tier].map((team, index) => {
                 const isMyTeam = myTeam && team.teamId === myTeam._id;
                 const rankInTier = index + 1;
-                
+
                 return (
                   <div
                     key={team.teamId}
                     style={{
-                      background: isMyTeam 
+                      background: isMyTeam
                         ? 'linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(0, 200, 200, 0.2))'
                         : 'rgba(255, 255, 255, 0.05)',
                       border: isMyTeam ? '2px solid #0ff' : '1px solid rgba(255, 255, 255, 0.1)',
@@ -223,7 +223,7 @@ export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTe
                       width: '36px',
                       height: '36px',
                       borderRadius: '50%',
-                      background: rankInTier <= 3 
+                      background: rankInTier <= 3
                         ? 'linear-gradient(135deg, #ffd700, #ffed4e)'
                         : 'rgba(255, 255, 255, 0.1)',
                       color: rankInTier <= 3 ? '#000' : '#fff',
@@ -266,7 +266,7 @@ export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTe
                         fontSize: '13px',
                         fontWeight: 'bold'
                       }}>
-                        {(team.score || 0).toFixed(0)} pts
+                        {(team.pointsBalance || 0).toFixed(0)} pts
                       </div>
                     </div>
 
@@ -291,7 +291,7 @@ export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTe
                           </span>
                         )}
                       </div>
-                      
+
                       {/* Attack Button - only show if not my team */}
                       {myTeam && team.teamId !== myTeam._id && (
                         <button
@@ -303,8 +303,8 @@ export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTe
                           style={{
                             padding: '4px 10px',
                             fontSize: '11px',
-                            background: team.shieldActive 
-                              ? 'rgba(100, 100, 100, 0.3)' 
+                            background: team.shieldActive
+                              ? 'rgba(100, 100, 100, 0.3)'
                               : 'linear-gradient(135deg, #ff0066, #cc0044)',
                             border: 'none',
                             borderRadius: '4px',
