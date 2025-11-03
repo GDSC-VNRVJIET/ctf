@@ -13,12 +13,12 @@ async function hashFlag(flag: string): Promise<string> {
 }
 
 // Helper to validate flag format
-function validateFlagFormat(flag: string): boolean {
-  if (!flag || flag.length > 500) return false;
-  const pattern = /^[A-Za-z0-9_\-{}\[\]@:.]+$/;
-  if (/['\";<>&|]/.test(flag)) return false;
-  return pattern.test(flag);
-}
+// function validateFlagFormat(flag: string): boolean {
+//   if (!flag || flag.length > 500) return false;
+//   const pattern = /^[A-Za-z0-9_\-{}\[\]@:.]+$/;
+//   if (/['\";<>&|]/.test(flag)) return false;
+//   return pattern.test(flag);
+// }
 
 // Helper to check submission rate limit
 async function checkSubmissionRateLimit(
@@ -518,18 +518,18 @@ export const submitFlag = mutation({
     }
 
     // Validate flag format
-    if (!validateFlagFormat(args.flag)) {
-      await ctx.db.insert("auditLogs", {
-        userId: args.userId,
-        action: "submit_flag_invalid_format",
-        detailsJson: JSON.stringify({
-          teamId: team._id,
-          puzzleId: args.puzzleId,
-        }),
-        createdAt: Date.now(),
-      });
-      throw new ConvexError("Invalid flag format");
-    }
+    // if (!validateFlagFormat(args.flag)) {
+    //   await ctx.db.insert("auditLogs", {
+    //     userId: args.userId,
+    //     action: "submit_flag_invalid_format",
+    //     detailsJson: JSON.stringify({
+    //       teamId: team._id,
+    //       puzzleId: args.puzzleId,
+    //     }),
+    //     createdAt: Date.now(),
+    //   });
+    //   throw new ConvexError("Invalid flag format");
+    // }
 
     // Check if already solved
     const existingCorrect = await ctx.db
