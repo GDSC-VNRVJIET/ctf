@@ -142,7 +142,7 @@ export default function NotificationsSidebar({ isOpen, onToggle, teamId }) {
           textOrientation: 'mixed'
         }}
       >
-        {isOpen ? '→' : '←'} NOTIFICATIONS
+        {isOpen ? '►' : '◄'} NOTIFICATIONS
       </button>
 
       {/* Sidebar */}

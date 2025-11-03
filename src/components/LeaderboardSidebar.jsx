@@ -96,7 +96,7 @@ export default function LeaderboardSidebar({ isOpen, onToggle, leaderboard, myTe
           textOrientation: 'mixed'
         }}
       >
-        {isOpen ? '→' : '←'} LEADERBOARD
+        {isOpen ? '►' : '◄'} LEADERBOARD
       </button>
 
       {/* Sidebar */}
