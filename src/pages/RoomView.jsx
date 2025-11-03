@@ -79,7 +79,8 @@ export default function RoomView() {
     }
 
     try {
-      await unlockRoom({ userId, roomId });
+      const unlockedRoom = await unlockRoom({ userId, roomId });
+      navigate(`/room/${roomId}`);
       toast.success('Room unlocked!');
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to unlock room'));
@@ -91,12 +92,12 @@ export default function RoomView() {
   
   // Handle room access errors (Room not found or not unlocked)
   if (!room) {
-    toast.error('This room is not accessible. Complete previous rooms first!');
+    toast.error('Room not found or invalid ID.');
     navigate(-1);
     return null;
   }
 
-  const canAccess = !team?.currentRoomId || team.currentRoomId === roomId;
+  let canAccess = !team?.currentRoomId || team.currentRoomId === roomId;
   const roomIntro = getRoomIntro(room);
 
   if (showIntro && canAccess) {
@@ -148,9 +149,49 @@ export default function RoomView() {
           <div className="card room-locked">
             <h3>Access Required</h3>
             <p>You need to unlock this room first.</p>
-            <button className="btn btn-primary" onClick={handleUnlockRoom}>
-              Unlock Room ({room.unlockCost} points)
-            </button>
+            {team?.pointsBalance >= room.unlockCost ? (
+              <>
+                <div style={{ 
+                  backgroundColor: '#1a472a', 
+                  padding: '12px', 
+                  borderRadius: '4px',
+                  marginBottom: '16px',
+                  border: '1px solid #2ecc71'
+                }}>
+                  <p style={{ color: '#2ecc71', margin: 0 }}>
+                    🎉 You have enough points to unlock this room! ({team.pointsBalance}/{room.unlockCost} points)
+                  </p>
+                </div>
+                <button 
+                  className="btn btn-primary"
+                  onClick={handleUnlockRoom}
+                  style={{
+                    animation: 'pulse 2s infinite',
+                    backgroundColor: '#2ecc71',
+                    borderColor: '#27ae60'
+                  }}
+                >
+                  Unlock Room Now!
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ 
+                  backgroundColor: '#2c1810', 
+                  padding: '12px', 
+                  borderRadius: '4px',
+                  marginBottom: '16px',
+                  border: '1px solid #e74c3c'
+                }}>
+                  <p style={{ color: '#e74c3c', margin: 0 }}>
+                    You need {room.unlockCost - team.pointsBalance} more points to unlock this room ({team.pointsBalance}/{room.unlockCost} points)
+                  </p>
+                </div>
+                <button className="btn btn-primary" disabled>
+                  Unlock Room ({room.unlockCost} points)
+                </button>
+              </>
+            )}
           </div>
         )}
 

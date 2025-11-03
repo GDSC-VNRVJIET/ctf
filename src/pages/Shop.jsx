@@ -20,7 +20,7 @@ export default function Shop() {
     }
 
     try {
-      const result = await buyPerk({ userId, perkId, roomNumber })
+      const result = await buyPerk({ userId, perkId })
       toast.success(result.message || 'Perk purchased successfully!')
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to purchase perk'))
@@ -49,7 +49,7 @@ export default function Shop() {
               </p>
               <div style={{ marginBottom: '12px' }}>
                 <span className="badge badge-warning">
-                  {perk.cost == '1' ? roomNumber * 15 : (perk.cost == '2' ? roomNumber * 50 : perk.cost)} points
+                  {perk.cost} points
                 </span>
                 {perk.isOneTime && (
                   <span className="badge badge-info" style={{ marginRight: '8px' }}>

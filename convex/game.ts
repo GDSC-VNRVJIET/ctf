@@ -649,8 +649,7 @@ export const dummyAction = mutation({
 export const buyPerk = mutation({
   args: {
     userId: v.id("users"),
-    perkId: v.id("perks"),
-    orderIndex: v.number()
+    perkId: v.id("perks")
   },
   handler: async (ctx, args) => {
     const team = await getUserTeam(ctx, args.userId);
@@ -1063,7 +1062,7 @@ export const unlockRoom = mutation({
       createdAt: Date.now(),
     });
 
-    return { message: `Unlocked ${room.name}` };
+    return room;
   },
 });
 

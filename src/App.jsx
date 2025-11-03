@@ -13,6 +13,9 @@ import Shop from './pages/Shop'
 import Leaderboard from './pages/Leaderboard'
 import AdminPanel from './pages/AdminPanel'
 import MainLayout from './components/MainLayout'
+import { useQueries } from 'convex/react'
+import { api } from '../convex/_generated/api'
+import { useState, useEffect, createContext } from 'react'
 
 function PrivateRoute({ children }) {
   const { user, userId, loading } = useAuth()
@@ -58,7 +61,17 @@ function PublicRoute({ children }) {
   return children
 }
 
+export const RoomContext = createContext();
+
 function App() {
+  // const { userId } = useAuth();
+  // const [room, setRoom] = useState(currentRoom);
+  // const currentRoom = useQuery(api.game.getRoomOfUser, { userId });
+
+  // useEffect(() => {
+  //   setRoom(currentRoom);
+  // }, [currentRoom]);
+
   return (
     <AuthProvider>
       <Toaster position="top-right" />
@@ -80,7 +93,11 @@ function App() {
           } />
           
           <Route path="/dashboard" element={
-            <PrivateRoute><Dashboard /></PrivateRoute>
+            <PrivateRoute>
+              {/* <RoomContext.Provider value={{ room, setRoom }}> */}
+                <Dashboard />
+              {/* </RoomContext.Provider> */}
+            </PrivateRoute>
           } />
           <Route path="/team" element={
             <PrivateRoute><TeamManagement /></PrivateRoute>
