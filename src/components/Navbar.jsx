@@ -16,7 +16,6 @@ export default function Navbar() {
         <Link to="/leaderboard" className="nav-link">🏆 Leaderboard</Link>
         <Link to="/rules" className="nav-link">📋 Rules</Link>
         <Link to="/team" className="nav-link">👥 Team</Link>
-        <Link to="/shop" className="nav-link">🛒 Shop</Link>
         {(user?.role === 'admin' || user?.role === 'organiser') && (
           <Link to="/admin" className="nav-link">⚙️ Admin</Link>
         )}
