@@ -12,7 +12,6 @@ export default function Dashboard() {
 
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip")
   const rooms = useQuery(api.game.getRooms, userId ? { userId } : "skip")
-  console.log(team, rooms)
 
   const leaveTeam = useMutation(api.teams.leaveTeam)
 
@@ -130,7 +129,6 @@ export default function Dashboard() {
                   const isUnlocked = index === 0 || currentRoomIndex >= index;
                   const isNext = index === currentRoomIndex + 1 || (currentRoomIndex === -1 && index === 1);
                   const isAccessible = isUnlocked; // Only unlocked rooms are clickable
-                  console.log(room, isUnlocked, isNext, isAccessible);
                   
                   return (
                     <div
@@ -166,27 +164,19 @@ export default function Dashboard() {
                       <div
                         style={{
                           flex: 1,
-                          cursor:'pointer',
-                          opacity: 1
+                          cursor: isAccessible ? 'pointer' : 'default',
+                          opacity: isAccessible ? 1 : 0.5
                         }}
-                        onClick={() => navigate(`/room/${room._id}`)}
+                        onClick={() => isAccessible && navigate(`/room/${room._id}`)}
                       >
                         <div
                           style={{
                             padding: '16px',
-                            borderLeft: '4px solid #0ff',
+                            borderLeft: `4px solid ${isUnlocked ? '#0ff' : isNext ? '#ff00ff' : '#666'}`,
                             background: 'rgba(0,255,255,0.05)'
                           }}
                         >
-                          <>
-                            <h3 style={{ margin: '0 0 8px 0', color: '#0ff', textShadow: '0 0 10px rgba(0,255,255,0.5)' }}>
-                              ✓ {room.name}
-                            </h3>
-                            <p style={{ margin: '4px 0', color: '#fff' }}>
-                              {room.description}
-                            </p>
-                          </>
-                          {/* {isUnlocked ? (
+                          {isUnlocked ? (
                             <>
                               <h3 style={{ margin: '0 0 8px 0', color: '#0ff', textShadow: '0 0 10px rgba(0,255,255,0.5)' }}>
                                 ✓ {room.name}
@@ -200,36 +190,9 @@ export default function Dashboard() {
                               <h3 style={{ margin: '0 0 8px 0', color: '#ff00ff', textShadow: '0 0 10px rgba(255,0,255,0.5)' }}>
                                 → {room.name}
                               </h3>
-                              <div style={{ margin: '4px 0' }}>
-                                {team.pointsBalance >= room.unlockCost ? (
-                                  <div style={{ 
-                                    padding: '8px', 
-                                    backgroundColor: 'rgba(46, 204, 113, 0.2)', 
-                                    border: '1px solid #2ecc71',
-                                    borderRadius: '4px',
-                                    marginBottom: '8px'
-                                  }}>
-                                    <p style={{ color: '#2ecc71', margin: 0 }}>
-                                      🎉 Ready to unlock! ({team.pointsBalance}/{room.unlockCost} points)
-                                    </p>
-                                  </div>
-                                ) : (
-                                  <div style={{ 
-                                    padding: '8px', 
-                                    backgroundColor: 'rgba(231, 76, 60, 0.1)', 
-                                    border: '1px solid #e74c3c',
-                                    borderRadius: '4px',
-                                    marginBottom: '8px'
-                                  }}>
-                                    <p style={{ color: '#e74c3c', margin: 0 }}>
-                                      Need {(room.unlockCost - team.pointsBalance).toFixed(0)} more points ({team.pointsBalance}/{room.unlockCost} points)
-                                    </p>
-                                  </div>
-                                )}
-                                <p style={{ color: '#aaa' }}>
-                                  Unlock Cost: <span style={{ color: '#ffff00', fontWeight: 'bold' }}>{room.unlockCost} pts</span>
-                                </p>
-                              </div>
+                              <p style={{ margin: '4px 0', color: '#aaa' }}>
+                                Unlock Cost: <span style={{ color: '#ffff00', fontWeight: 'bold' }}>{room.unlockCost} pts</span>
+                              </p>
                             </>
                           ) : (
                             <>
@@ -240,7 +203,7 @@ export default function Dashboard() {
                                 Explore other rooms first...
                               </p>
                             </>
-                          )} */}
+                          )}
                         </div>
                       </div>
 
@@ -256,11 +219,10 @@ export default function Dashboard() {
                           fontSize: '20px',
                           backgroundColor: isUnlocked ? 'rgba(0,255,0,0.2)' : isNext ? 'rgba(255,0,255,0.2)' : 'rgba(100,100,100,0.2)',
                           border: `2px solid ${isUnlocked ? '#0f0' : isNext ? '#f0f' : '#666'}`,
-                          color: isUnlocked ? '#0f0' : isNext ? '#f0f' : '#666',
-                          animation: isNext && team.pointsBalance >= room.unlockCost ? 'pulse 2s infinite' : 'none'
+                          color: isUnlocked ? '#0f0' : isNext ? '#f0f' : '#666'
                         }}
                       >
-                        {isUnlocked ? '✓' : isNext && team.pointsBalance >= room.unlockCost ? '✨' : isNext ? '→' : '?'}
+                        {isUnlocked ? '✓' : isNext ? '→' : '?'}
                       </div>
                     </div>
                   )
