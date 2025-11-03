@@ -86,7 +86,7 @@ export default function RoomView() {
 
   // Handle room access errors (Room not found or not unlocked)
   if (!room) {
-    toast.error('This room is not accessible. Complete previous rooms first!');
+    toast.error('Room not found or invalid ID.');
     navigate(-1);
     return null;
   }

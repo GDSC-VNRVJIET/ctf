@@ -15,10 +15,16 @@ export default function TeamManagement() {
     api.teams.getTeamMembers,
     userId && team ? { userId, teamId: team._id } : "skip"
   );
-  const joinRequests = useQuery(
-    api.teams.getTeamJoinRequests,
-    userId && team && team.captainUserId === userId ? { userId, teamId: team._id } : "skip"
-  );
+  let joinRequests;
+  
+  try {
+    joinRequests = useQuery(
+      api.teams.getTeamJoinRequests,
+      userId && team && team.captainUserId === userId ? { userId, teamId: team._id } : "skip"
+    );
+  } catch (error) {
+    toast.error('Team is full!');
+  }
 
   // Mutations
   const acceptRequest = useMutation(api.teams.acceptJoinRequest);

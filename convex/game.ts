@@ -239,18 +239,6 @@ export const getTeam = query({
   }
 })
 
-export const getRoomOfUser = query({
-  args: {
-    userId: v.id("users")
-  },
-  handler: async (ctx, args) => {
-    const team = await getUserTeam(ctx, args.userId);
-    const room = team.currentRoomId;
-    const roomNumber = room.orderIndex;
-    return roomNumber;
-  }
-})
-
 export const getRoom = query({
   args: { userId: v.id("users"), roomId: v.id("rooms") },
   handler: async (ctx, args) => {
@@ -753,7 +741,6 @@ export const buyPerk = mutation({
   args: {
     userId: v.id("users"),
     perkId: v.id("perks"),
-    orderIndex: v.number()
   },
   handler: async (ctx, args) => {
     const team = await getUserTeam(ctx, args.userId);
@@ -1243,7 +1230,7 @@ export const unlockRoom = mutation({
       createdAt: Date.now(),
     });
 
-    return { message: `Unlocked ${room.name}` };
+    return room;
   },
 });
 

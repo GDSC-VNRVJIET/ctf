@@ -66,12 +66,7 @@ export default function NotificationsSidebar({ isOpen, onToggle, teamId }) {
     )
   }
     
-  let notifications;
-  try {
-    notifications = useQuery(api.game.getNotifications, { teamId });
-  } catch (error) {
-    console.log(error);
-  }
+  const notifications = useQuery(api.game.getNotifications, { teamId });
   const styles = {
     invest: { 
       backgroundColor: 'lightblue',
@@ -96,10 +91,12 @@ export default function NotificationsSidebar({ isOpen, onToggle, teamId }) {
       if (notification.actionType === 'invest') {
         message += ` has invested ${ notification.cost } coins!`;
       } else if (notification.actionType === 'attack') {
+        const expectedTime = new Date(notification.cooldownUntil);
+        
         if (teamId === notification.targetTeamId) {
-          message += ` has been attacked by ${ notification.targetTeamName }! Your team is now frozen until ${ notification.cooldownUntil } :(`;
+          message += ` has been attacked by ${ notification.teamName }! Your team is now frozen until ${String(expectedTime.getHours()).padStart(2, '0')}:${String(expectedTime.getMinutes()).padStart(2, '0')}:${String(expectedTime.getSeconds()).padStart(2, '0')} :(`;
         } else {
-          message += ` has attacked ${ notification.targetTeamName }! Their team is now frozen until ${ notification.cooldownUntil }! ;)`;
+          message += ` has attacked ${ notification.targetTeamName }! Their team is now frozen until ${String(expectedTime.getHours()).padStart(2, '0')}:${String(expectedTime.getMinutes()).padStart(2, '0')}:${String(expectedTime.getSeconds()).padStart(2, '0')}! ;)`;
         }
       } else {
         if (teamId === notification.targetTeamId) {
@@ -145,7 +142,7 @@ export default function NotificationsSidebar({ isOpen, onToggle, teamId }) {
           textOrientation: 'mixed'
         }}
       >
-        {isOpen ? '→' : '←'} NOTIFICATIONS
+        {isOpen ? '►' : '◄'} NOTIFICATIONS
       </button>
 
       {/* Sidebar */}
