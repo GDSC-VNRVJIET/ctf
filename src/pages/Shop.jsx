@@ -43,20 +43,18 @@ export default function Shop() {
         <div className="grid grid-3">
           {perks && perks.map((perk) => (
             <div key={perk._id} className="card">
-              <h3>{perk.name.split("/")[0]}</h3>
-              <p style={{ margin: '12px 0', marginRight: '8px', color: '#666', minHeight: '60px' }}>
+              <h3>{perk.name}</h3>
+              <p style={{ margin: '12px 0', color: '#666', minHeight: '60px' }}>
                 {perk.description}
               </p>
               <div style={{ marginBottom: '12px' }}>
-                <span className="badge badge-warning">
-                  {perk.cost} points
-                </span>
+                <span className="badge badge-warning">{perk.cost} points</span>
                 {perk.isOneTime && (
-                  <span className="badge badge-info" style={{ marginRight: '8px' }}>
+                  <span className="badge badge-info" style={{ marginLeft: '8px' }}>
                     One-time
                   </span>
                 )}
-                <span className={`badge badge-${perk.perkType === 'attack' ? 'danger' : perk.perkType === 'defense' ? 'success' : 'info'}`} style={{ marginRight: '8px' }}>
+                <span className={`badge badge-${perk.perkType === 'attack' ? 'danger' : perk.perkType === 'defense' ? 'success' : 'info'}`} style={{ marginLeft: '8px' }}>
                   {perk.perkType}
                 </span>
               </div>
