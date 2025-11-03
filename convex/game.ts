@@ -432,6 +432,29 @@ export const getPurchasedClues = query({
   },
 });
 
+export const getSubmissionStatus = query({
+  args: {
+    userId: v.id("users"),
+    puzzleId: v.id("puzzles"),
+  },
+  handler: async (ctx, args) => {
+    const team = await getUserTeam(ctx, args.userId);
+
+    const correctSubmission = await ctx.db
+      .query("submissions")
+      .withIndex("by_team_and_puzzle", (q) => 
+        q.eq("teamId", team._id).eq("puzzleId", args.puzzleId)
+      )
+      .filter((q) => q.eq(q.field("isCorrect"), true))
+      .first();
+
+    return {
+      isAlreadySolved: !!correctSubmission,
+      solvedAt: correctSubmission?.submissionTime || null,
+    };
+  },
+});
+
 // Mutations
 export const submitFlag = mutation({
   args: {

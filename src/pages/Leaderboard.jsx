@@ -97,7 +97,6 @@ export default function Leaderboard() {
                 <tr>
                   <th>Rank</th>
                   <th>Team</th>
-                  <th>Score</th>
                   <th>Points</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -108,8 +107,7 @@ export default function Leaderboard() {
                   <tr key={entry.teamId}>
                     <td><strong>#{index + 1}</strong></td>
                     <td>{entry.teamName}</td>
-                    <td><strong>{entry.score.toFixed(0)}</strong></td>
-                    <td>{entry.pointsBalance.toFixed(0)} pts</td>
+                    <td><strong>{entry.pointsBalance.toFixed(0)} pts</strong></td>
                     <td>
                       {entry.shieldActive && (
                         <span className="badge badge-success">Shield</span>

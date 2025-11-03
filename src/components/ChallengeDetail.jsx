@@ -15,10 +15,14 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
     userId && challenge.isChallenge ? { userId, challengeId: challenge._id } : "skip"
   );
 
-  // Fetch clues with purchase status for this challenge
   const clues = useQuery(
     api.game.getPurchasedClues,
     userId ? { userId, puzzleId: challenge._id } : "skip"
+  );
+
+  const submissionStatus = useQuery(
+    api.game.getSubmissionStatus,
+    userId && team ? { userId, puzzleId: challenge._id } : "skip"
   );
 
   // Timer effect
@@ -131,9 +135,25 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
         <h2 style={{
           color: colors.border,
           marginBottom: '16px',
-          textShadow: `0 0 10px ${colors.border}50`
+          textShadow: `0 0 10px ${colors.border}50`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
         }}>
           {challenge.title}
+          {submissionStatus?.isAlreadySolved && (
+            <span style={{
+              background: 'linear-gradient(135deg, #0f0, #00aa00)',
+              color: '#000',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              boxShadow: '0 0 10px rgba(0, 255, 0, 0.5)'
+            }}>
+              SOLVED
+            </span>
+          )}
         </h2>
 
         {/* Topic & Difficulty */}
@@ -206,10 +226,10 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
                       ? 'rgba(255, 255, 0, 0.1)'
                       : 'rgba(128, 128, 128, 0.1)',
                   border: `1px solid ${clue.isPurchased
-                      ? 'rgba(0, 255, 0, 0.3)'
-                      : clue.canPurchase
-                        ? 'rgba(255, 255, 0, 0.3)'
-                        : 'rgba(128, 128, 128, 0.3)'
+                    ? 'rgba(0, 255, 0, 0.3)'
+                    : clue.canPurchase
+                      ? 'rgba(255, 255, 0, 0.3)'
+                      : 'rgba(128, 128, 128, 0.3)'
                     }`,
                   borderRadius: '6px',
                   padding: '12px',
@@ -465,41 +485,94 @@ export default function ChallengeDetail({ challenge, onBack, userId, team }) {
 
         {/* Flag Submission */}
         <div style={{
-          background: 'rgba(0, 255, 255, 0.05)',
-          border: '2px solid #0ff',
+          background: submissionStatus?.isAlreadySolved
+            ? 'rgba(0, 255, 0, 0.05)'
+            : 'rgba(0, 255, 255, 0.05)',
+          border: submissionStatus?.isAlreadySolved
+            ? '2px solid #0f0'
+            : '2px solid #0ff',
           borderRadius: '12px',
           padding: '20px',
           flex: 1
         }}>
-          <h3 style={{ color: '#0ff', marginBottom: '16px' }}>Submit Flag</h3>
-          <form onSubmit={handleSubmit}>
-            <input
-              type="text"
-              value={flag}
-              onChange={(e) => setFlag(e.target.value)}
-              placeholder="Enter flag here..."
-              className="input"
-              style={{
-                width: '100%',
-                marginBottom: '16px',
-                fontFamily: 'monospace',
-                padding: '16px',
-                fontSize: '16px',
-                minHeight: '56px'
-              }}
-              disabled={challenge.isChallenge && !activeAttempt}
-            />
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%' }}
-              disabled={challenge.isChallenge && !activeAttempt}
-            >
-              {challenge.isChallenge && !activeAttempt ? 'Start Challenge First' : 'Submit Flag'}
-            </button>
-          </form>
+          <h3 style={{
+            color: submissionStatus?.isAlreadySolved ? '#0f0' : '#0ff',
+            marginBottom: '16px'
+          }}>
+            {submissionStatus?.isAlreadySolved ? 'Already Submitted' : 'Submit Flag'}
+          </h3>
 
-          {challenge.isChallenge && !activeAttempt && (
+          {submissionStatus?.isAlreadySolved ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '24px',
+              background: 'linear-gradient(135deg, rgba(0, 255, 0, 0.1), rgba(0, 200, 0, 0.05))',
+              border: '2px solid #0f0',
+              borderRadius: '12px',
+              color: '#0f0',
+              boxShadow: '0 0 20px rgba(0, 255, 0, 0.2)'
+            }}>
+              <div style={{
+                fontSize: '20px',
+                fontWeight: 'bold',
+                marginBottom: '8px',
+                textShadow: '0 0 5px rgba(0, 255, 0, 0.3)'
+              }}>
+                Challenge Solved!
+              </div>
+              <div style={{
+                fontSize: '14px',
+                opacity: 0.9,
+                marginBottom: '12px',
+                fontFamily: 'monospace'
+              }}>
+                Completed: {submissionStatus?.solvedAt ? new Date(submissionStatus.solvedAt).toLocaleDateString() + ' at ' + new Date(submissionStatus.solvedAt).toLocaleTimeString() : 'Unknown'}
+              </div>
+              <div style={{
+                background: 'rgba(0, 255, 0, 0.2)',
+                border: '1px solid #0f0',
+                borderRadius: '6px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                display: 'inline-block'
+              }}>
+                🎯 Points Earned: {challenge.isChallenge && challenge.challengePointsMultiplier
+                  ? `${challenge.pointsReward * challenge.challengePointsMultiplier}pts`
+                  : `${challenge.pointsReward}pts`
+                }
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <input
+                type="text"
+                value={flag}
+                onChange={(e) => setFlag(e.target.value)}
+                placeholder="Enter flag here..."
+                className="input"
+                style={{
+                  width: '100%',
+                  marginBottom: '16px',
+                  fontFamily: 'monospace',
+                  padding: '16px',
+                  fontSize: '16px',
+                  minHeight: '56px'
+                }}
+                disabled={challenge.isChallenge && !activeAttempt}
+              />
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+                disabled={challenge.isChallenge && !activeAttempt}
+              >
+                {challenge.isChallenge && !activeAttempt ? 'Start Challenge First' : 'Submit Flag'}
+              </button>
+            </form>
+          )}
+
+          {challenge.isChallenge && !activeAttempt && !submissionStatus?.isAlreadySolved && (
             <div style={{
               marginTop: '12px',
               padding: '12px',
