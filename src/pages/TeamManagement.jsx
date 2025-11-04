@@ -4,11 +4,13 @@ import { useQuery, useMutation } from 'convex/react';
 import toast from 'react-hot-toast';
 import { api } from '../../convex/_generated/api';
 import { getErrorMessage } from '../utils/errorHandler';
+import { useNavigate } from 'react-router-dom';
 
 export default function TeamManagement() {
   const { user, userId } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const navigate = useNavigate()
 
   const team = useQuery(api.teams.getMyTeam, userId ? { userId } : "skip");
   const members = useQuery(
@@ -16,7 +18,7 @@ export default function TeamManagement() {
     userId && team ? { userId, teamId: team._id } : "skip"
   );
   let joinRequests;
-  
+
   try {
     joinRequests = useQuery(
       api.teams.getTeamJoinRequests,
@@ -79,6 +81,10 @@ export default function TeamManagement() {
     }
   };
 
+  const handleMangeTeam = () => {
+    navigate("/onboarding")
+  }
+
   if (loading) return <div className="loading">Loading...</div>;
 
   return (
@@ -90,10 +96,10 @@ export default function TeamManagement() {
           <div className="card">
             <h2>You're not in a team</h2>
             <div style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
-              <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+              <button className="btn btn-primary" onClick={handleMangeTeam}>
                 Create Team
               </button>
-              <button className="btn btn-secondary" onClick={() => setShowJoinModal(true)}>
+              <button className="btn btn-secondary" onClick={handleMangeTeam}>
                 Join Team
               </button>
             </div>
